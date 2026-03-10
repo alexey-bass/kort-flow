@@ -45,7 +45,6 @@ index.html                      — App shell, 10 tab panels, modals
 assets/css/styles.css           — All styles, CSS variables, responsive breakpoints
 assets/js/app.js                — Application logic
 assets/js/i18n.js               — Translations (Polish + English) and i18n engine
-assets/js/firebase-config.js    — Firebase and Google Analytics configuration
 assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
 package.json                    — npm start script for local dev server
 CLAUDE.md                       — AI assistant context (architecture, data model)
@@ -88,7 +87,7 @@ When finishing a game, a confirmation modal lets you optionally enter the score 
 3. Copy the share link and send it to players
 4. Anyone opening the link auto-joins the session and sees live updates
 
-Sync uses Firebase Realtime Database. Configuration is in `assets/js/firebase-config.js`.
+Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 
 ## Tech Stack
 
