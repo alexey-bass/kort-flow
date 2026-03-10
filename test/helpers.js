@@ -73,9 +73,9 @@ function loadApp() {
 
   var dir = path.resolve(__dirname, '..');
 
-  var configSrc = fs.readFileSync(dir + '/firebase-config.js', 'utf8');
-  var i18nSrc = fs.readFileSync(dir + '/i18n.js', 'utf8');
-  var appSrc = fs.readFileSync(dir + '/app.js', 'utf8');
+  var configSrc = fs.readFileSync(dir + '/assets/js/firebase-config.js', 'utf8');
+  var i18nSrc = fs.readFileSync(dir + '/assets/js/i18n.js', 'utf8');
+  var appSrc = fs.readFileSync(dir + '/assets/js/app.js', 'utf8');
 
   // Remove DOMContentLoaded listener
   appSrc = appSrc.replace(/document\.addEventListener\('DOMContentLoaded'.*\);/, '');
