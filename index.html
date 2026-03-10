@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Badminton — Queue</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>Badminton</h1>
+      <span class="session-date" id="sessionDate"></span>
+    </div>
+    <div class="topbar-right">
+      <div class="lang-switcher" id="langSwitcher">
+        <button class="lang-btn" data-lang="pl" title="Polski"><span class="lang-flag">🇵🇱</span><span class="lang-label">PL</span></button>
+        <button class="lang-btn" data-lang="en" title="English"><span class="lang-flag">🇬🇧</span><span class="lang-label">EN</span></button>
+      </div>
+      <button class="btn-icon" id="btnToggleMode" title="Toggle mode">
+        <span id="modeIcon">&#9881;</span>
+      </button>
+      <span class="sync-indicator" id="syncIndicator" title="Sync" hidden>&#9679;</span>
+    </div>
+  </header>
+
+  <!-- ===== NAVIGATION (tabs) ===== -->
+  <nav class="tabs" id="tabNav">
+    <button class="tab active" data-tab="board" data-i18n="tabBoard"></button>
+    <button class="tab" data-tab="dashboard" data-i18n="tabToday"></button>
+    <button class="tab" data-tab="players" data-i18n="tabPlayers"></button>
+    <button class="tab" data-tab="queue" data-i18n="tabQueue"></button>
+    <button class="tab" data-tab="courts" data-i18n="tabCourts"></button>
+    <button class="tab" data-tab="history" data-i18n="tabHistory"></button>
+  </nav>
+
+  <!-- ===== CONTENT ===== -->
+  <main class="content">
+
+    <!-- BOARD (main screen during play) -->
+    <section class="panel active" id="panel-board">
+      <div class="board-layout">
+        <div class="board-courts" id="boardCourts"></div>
+        <div class="board-queue">
+          <h3><span data-i18n="queue"></span> <span class="badge" id="boardQueueCount">0</span></h3>
+          <div class="board-queue-list" id="boardQueueList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TODAY (dashboard) -->
+    <section class="panel" id="panel-dashboard">
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="section-block">
+        <h3 data-i18n="sessionSettings"></h3>
+        <div class="form-row">
+          <label data-i18n="sessionNameLabel"></label>
+          <select id="sessionName">
+            <option value="Friday" data-i18n-opt="dayFriday"></option>
+            <option value="Sunday" data-i18n-opt="daySunday"></option>
+            <option value="Training" data-i18n-opt="sessionTraining"></option>
+            <option value="Other" data-i18n-opt="sessionOther"></option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label data-i18n="courtNumbersLabel"></label>
+          <input type="text" id="courtNumbers" placeholder="2,3,4,6" value="1,2,3,4">
+        </div>
+        <button class="btn btn-primary" id="btnApplyCourts" data-i18n="applyCourts"></button>
+      </div>
+
+      <div class="section-block">
+        <h3 data-i18n="syncFirebase"></h3>
+        <div id="syncSection">
+          <div class="form-row">
+            <label data-i18n="roomIdLabel"></label>
+            <input type="text" id="roomIdInput" placeholder="bad-2026-03-09">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnCreateRoom" data-i18n="createRoom"></button>
+            <button class="btn btn-secondary" id="btnJoinRoom" data-i18n="joinRoom"></button>
+            <button class="btn btn-danger" id="btnDisconnect" hidden data-i18n="disconnect"></button>
+          </div>
+          <div id="syncStatus" class="sync-status"></div>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <h3 data-i18n="actions"></h3>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnNewSession" data-i18n="newSession"></button>
+          <button class="btn btn-secondary" id="btnResetToday" data-i18n="resetDay"></button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="btnExport" data-i18n="exportJSON"></button>
+          <button class="btn btn-secondary" id="btnImport" data-i18n="importJSON"></button>
+          <input type="file" id="importFile" accept=".json" hidden>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYERS -->
+    <section class="panel" id="panel-players">
+      <div class="add-player-form">
+        <input type="text" id="playerNameInput" data-i18n-placeholder="playerNamePlaceholder" autocomplete="off">
+        <button class="btn btn-primary" id="btnAddPlayer" data-i18n="addPlayer"></button>
+      </div>
+      <div class="player-list" id="playerList"></div>
+    </section>
+
+    <!-- QUEUE -->
+    <section class="panel" id="panel-queue">
+      <div class="queue-header">
+        <span><span data-i18n="inQueue"></span>: <strong id="queueCount">0</strong></span>
+      </div>
+      <div class="queue-list" id="queueList"></div>
+    </section>
+
+    <!-- COURTS (management) -->
+    <section class="panel" id="panel-courts">
+      <div class="courts-grid" id="courtsGrid"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="panel" id="panel-history">
+      <div class="history-filters">
+        <select id="historyCourtFilter">
+          <option value="all" data-i18n="allCourts"></option>
+        </select>
+        <select id="historyPlayerFilter">
+          <option value="all" data-i18n="allPlayers"></option>
+        </select>
+        <button class="btn btn-danger btn-sm" id="btnUndoLastMatch" data-i18n="undoLastMatch"></button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+
+  </main>
+
+  <!-- ===== MODAL ===== -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <!-- ===== TOASTS ===== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Firebase SDK (loaded from CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
