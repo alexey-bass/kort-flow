@@ -2719,7 +2719,6 @@ App.init = function() {
     document.getElementById('sessionIdInput').value = sessionParam;
     App.Sync.init(sessionParam, false);
     App.Analytics.track('sync_join', { source: 'url' });
-    App.UI.showTab('sync');
   } else if (App.state.settings.syncEnabled && App.state.settings.syncSessionId) {
     // If sync was active — show session ID (user clicks to reconnect)
     document.getElementById('sessionIdInput').value = App.state.settings.syncSessionId;
