@@ -31,6 +31,13 @@ App.Utils = {
     return min + ':' + (sec < 10 ? '0' : '') + sec;
   },
 
+  formatWaitMinutes: function(ms) {
+    if (!ms || ms < 0) return App.t('waitNew');
+    var min = Math.floor(ms / 60000);
+    if (min < 1) return App.t('waitNew');
+    return min + App.t('waitMin');
+  },
+
   formatDate: function(date) {
     var d = date instanceof Date ? date : new Date(date);
     var dd = String(d.getDate()).padStart(2, '0');
@@ -1502,7 +1509,7 @@ App.UI = {
         '<span class="queue-name">' + App.UI._esc(p.name) + '</span>' +
         '<span class="queue-wait">' + p.gamesPlayed + App.t('gamesN') + '</span>' +
         '<span class="queue-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
-          (p.queueEntryTime ? App.Utils.formatTime(Date.now() - p.queueEntryTime) : '') + '</span>' +
+          App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
         '<button class="btn btn-secondary btn-xs" data-action="queue-to-end" data-pid="' + pid + '">&darr;</button>' +
         '<button class="btn btn-danger btn-xs" data-action="queue-remove" data-pid="' + pid + '">&#10005;</button>' +
         '</div>';
@@ -2071,7 +2078,7 @@ App.UI = {
         '<span class="bq-name">' + App.UI._esc(p.name) + '</span>' +
         '<span class="bq-games">' + p.gamesPlayed + App.t('gamesN') + '</span>' +
         '<span class="bq-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
-          (p.queueEntryTime ? App.Utils.formatTime(Date.now() - p.queueEntryTime) : '') + '</span>' +
+          App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
         '</div>';
     });
 
@@ -2733,7 +2740,7 @@ App.UI = {
       document.querySelectorAll('.queue-timer, .bq-timer').forEach(function(el) {
         var start = parseInt(el.dataset.queueStart);
         if (start) {
-          el.textContent = App.Utils.formatTime(now - start);
+          el.textContent = App.Utils.formatWaitMinutes(now - start);
         }
       });
     }, 1000);

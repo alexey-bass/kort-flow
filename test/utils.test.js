@@ -63,4 +63,37 @@ describe('App.Utils', function() {
       assert.strictEqual(App.Utils.formatTimestamp(ts), '14:05');
     });
   });
+
+  describe('formatWaitMinutes', function() {
+    it('should return "new" for 0ms', function() {
+      App.i18n.currentLang = 'en';
+      assert.strictEqual(App.Utils.formatWaitMinutes(0), 'new');
+    });
+
+    it('should return "new" for null', function() {
+      App.i18n.currentLang = 'en';
+      assert.strictEqual(App.Utils.formatWaitMinutes(null), 'new');
+    });
+
+    it('should return "new" for less than 1 minute', function() {
+      App.i18n.currentLang = 'en';
+      assert.strictEqual(App.Utils.formatWaitMinutes(59000), 'new');
+    });
+
+    it('should return "1 min" for 1 minute', function() {
+      App.i18n.currentLang = 'en';
+      assert.strictEqual(App.Utils.formatWaitMinutes(60000), '1 min');
+    });
+
+    it('should return "5 min" for 5 minutes', function() {
+      App.i18n.currentLang = 'en';
+      assert.strictEqual(App.Utils.formatWaitMinutes(300000), '5 min');
+    });
+
+    it('should return Polish translation', function() {
+      App.i18n.currentLang = 'pl';
+      assert.strictEqual(App.Utils.formatWaitMinutes(0), 'nowy');
+      assert.strictEqual(App.Utils.formatWaitMinutes(120000), '2 min');
+    });
+  });
 });
