@@ -94,4 +94,4 @@ Sync uses Firebase Realtime Database. Configuration is in `firebase-config.js`.
 
 ## License
 
-MIT
+All rights reserved. Contact the author for permission to use this software. See [LICENSE](LICENSE) for details.
