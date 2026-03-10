@@ -1572,7 +1572,16 @@ App.UI = {
       html += '</div>';
     });
 
+    // Custom split option
+    html += '<div class="team-split-option" data-split-idx="custom">';
+    html += '<strong>' + App.t('customSplit') + '</strong>';
     html += '</div>';
+
+    html += '</div>';
+
+    // Custom split area
+    html += App.UI._buildCustomSplitHtml(result.teamA, result.teamB);
+
     html += '<div class="btn-row">';
     html += '<button class="btn btn-success" id="btnConfirmSuggest">' + App.t('startGame') + '</button>';
     html += '<button class="btn btn-secondary" onclick="App.UI.hideModal()">' + App.t('cancelAction') + '</button>';
@@ -1580,14 +1589,31 @@ App.UI = {
 
     this.showModal(html);
 
+    var customArea = document.getElementById('customSplitArea');
+    var isCustom = false;
+
     // Split selection
     document.getElementById('modalContent').addEventListener('click', function(e) {
       var option = e.target.closest('.team-split-option');
       if (option) {
         document.querySelectorAll('.team-split-option').forEach(function(o) { o.classList.remove('selected'); });
         option.classList.add('selected');
-        var idx = parseInt(option.dataset.splitIdx);
-        selectedSplit = result.allSplits[idx];
+        var idx = option.dataset.splitIdx;
+        if (idx === 'custom') {
+          isCustom = true;
+          customArea.classList.add('active');
+          App.UI._syncCustomSplit(customArea, selectedSplit);
+        } else {
+          isCustom = false;
+          customArea.classList.remove('active');
+          selectedSplit = result.allSplits[parseInt(idx)];
+        }
+      }
+
+      // Handle chip clicks in custom area
+      var chip = e.target.closest('.custom-split-chip');
+      if (chip && isCustom) {
+        App.UI._handleCustomChipClick(chip, customArea, selectedSplit);
       }
     });
 
@@ -1597,6 +1623,78 @@ App.UI = {
       App.UI.hideModal();
       App.UI.renderAll();
     });
+  },
+
+  _buildCustomSplitHtml: function(teamA, teamB) {
+    var html = '<div class="custom-split-area" id="customSplitArea">';
+    html += '<div class="custom-split-teams">';
+    html += '<div class="custom-split-team custom-split-team-a" id="customTeamA">';
+    html += '<h5>Team A</h5>';
+    teamA.forEach(function(id) {
+      html += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+    });
+    html += '</div>';
+    html += '<div class="custom-split-team custom-split-team-b" id="customTeamB">';
+    html += '<h5>Team B</h5>';
+    teamB.forEach(function(id) {
+      html += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+    });
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="custom-split-hint">' + App.t('customSplitHint') + '</div>';
+    html += '</div>';
+    return html;
+  },
+
+  _syncCustomSplit: function(area, splitObj) {
+    var teamAEl = area.querySelector('#customTeamA') || area.querySelector('.custom-split-team-a');
+    var teamBEl = area.querySelector('#customTeamB') || area.querySelector('.custom-split-team-b');
+    teamAEl.innerHTML = '<h5>Team A</h5>';
+    teamBEl.innerHTML = '<h5>Team B</h5>';
+    splitObj.teamA.forEach(function(id) {
+      teamAEl.innerHTML += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+    });
+    splitObj.teamB.forEach(function(id) {
+      teamBEl.innerHTML += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+    });
+  },
+
+  _customSwapTarget: null,
+
+  _handleCustomChipClick: function(chip, area, splitObj) {
+    var pid = chip.dataset.pid;
+    var inA = splitObj.teamA.indexOf(pid) !== -1;
+    var inB = splitObj.teamB.indexOf(pid) !== -1;
+
+    if (this._customSwapTarget) {
+      // Second click — swap the two players
+      var first = this._customSwapTarget;
+      var firstInA = splitObj.teamA.indexOf(first) !== -1;
+      var secondInA = inA;
+
+      // Only swap if they're on different teams
+      if (firstInA !== secondInA) {
+        var idxFirst = firstInA ? splitObj.teamA.indexOf(first) : splitObj.teamB.indexOf(first);
+        var idxSecond = secondInA ? splitObj.teamA.indexOf(pid) : splitObj.teamB.indexOf(pid);
+
+        if (firstInA) {
+          splitObj.teamA[idxFirst] = pid;
+          splitObj.teamB[idxSecond] = first;
+        } else {
+          splitObj.teamB[idxFirst] = pid;
+          splitObj.teamA[idxSecond] = first;
+        }
+      }
+
+      this._customSwapTarget = null;
+      area.querySelectorAll('.custom-split-chip').forEach(function(c) { c.classList.remove('swap-selected'); });
+      this._syncCustomSplit(area, splitObj);
+    } else {
+      // First click — highlight and wait for second
+      this._customSwapTarget = pid;
+      area.querySelectorAll('.custom-split-chip').forEach(function(c) { c.classList.remove('swap-selected'); });
+      chip.classList.add('swap-selected');
+    }
   },
 
   _showPlayerSelectForCourt: function(courtId) {
@@ -1669,17 +1767,40 @@ App.UI = {
           }
           phtml += '</div>';
         });
+        // Custom split option
+        phtml += '<div class="team-split-option" data-sidx="custom">';
+        phtml += '<strong>' + App.t('customSplit') + '</strong>';
         phtml += '</div>';
+        phtml += '</div>';
+        phtml += App.UI._buildCustomSplitHtml(split.teamA, split.teamB);
         preview.innerHTML = phtml;
+
+        var customArea2 = document.getElementById('customSplitArea');
+        var isCustom2 = false;
 
         // Split selection handler
         preview.addEventListener('click', function(e2) {
           var opt = e2.target.closest('.team-split-option');
-          if (!opt) return;
-          preview.querySelectorAll('.team-split-option').forEach(function(o) { o.classList.remove('selected'); });
-          opt.classList.add('selected');
-          var sidx = parseInt(opt.dataset.sidx);
-          chosenSplit = split.allSplits[sidx];
+          if (opt) {
+            preview.querySelectorAll('.team-split-option').forEach(function(o) { o.classList.remove('selected'); });
+            opt.classList.add('selected');
+            var sidx = opt.dataset.sidx;
+            if (sidx === 'custom') {
+              isCustom2 = true;
+              customArea2.classList.add('active');
+              App.UI._syncCustomSplit(customArea2, chosenSplit);
+            } else {
+              isCustom2 = false;
+              customArea2.classList.remove('active');
+              chosenSplit = split.allSplits[parseInt(sidx)];
+            }
+          }
+
+          // Handle chip clicks in custom area
+          var chip = e2.target.closest('.custom-split-chip');
+          if (chip && isCustom2) {
+            App.UI._handleCustomChipClick(chip, customArea2, chosenSplit);
+          }
         });
       } else {
         preview.innerHTML = '';
