@@ -21,7 +21,6 @@ index.html                      — App shell, 10 tab panels, modal, toast conta
 assets/css/styles.css           — All styles, CSS variables, responsive breakpoints
 assets/js/app.js                — Application logic (App.Utils through App.DnD)
 assets/js/i18n.js               — App object init, translations (Polish + English), i18n engine
-assets/js/firebase-config.js    — Firebase config (legacy, now inlined in index.html)
 assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
 package.json                    — npm start script (python3 http.server)
 ```
