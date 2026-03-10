@@ -119,45 +119,77 @@ describe('Queue games counter', function() {
     App.Session.create();
   });
 
-  it('should have gamesN translation in both languages', function() {
-    App.i18n.currentLang = 'pl';
-    assert.ok(App.t('gamesN').length > 0);
+  it('should format games with App.tGames', function() {
     App.i18n.currentLang = 'en';
-    assert.ok(App.t('gamesN').length > 0);
-  });
-
-  it('should include gamesPlayed in admin queue HTML', function() {
-    var id = App.Players.add('Alice');
-    App.Players.markPresent(id);
-    App.state.players[id].gamesPlayed = 3;
-
-    // Capture the HTML that renderQueue would produce
-    var queue = App.state.waitingQueue;
-    var p = App.state.players[queue[0]];
-    var html = p.gamesPlayed + App.t('gamesN');
-    assert.ok(html.indexOf('3') !== -1);
-  });
-
-  it('should include gamesPlayed in board queue HTML', function() {
-    var id = App.Players.add('Bob');
-    App.Players.markPresent(id);
-    App.state.players[id].gamesPlayed = 5;
-
-    var p = App.state.players[id];
-    // Simulate board queue item HTML fragment
-    var fragment = '<span class="bq-games">' + p.gamesPlayed + App.t('gamesN') + '</span>';
-    assert.ok(fragment.indexOf('5') !== -1);
-    assert.ok(fragment.indexOf('bq-games') !== -1);
+    assert.strictEqual(App.tGames(3), '3 games');
+    assert.strictEqual(App.tGames(0), '0 games');
   });
 
   it('should show 0 games for new players', function() {
     var id = App.Players.add('Charlie');
     App.Players.markPresent(id);
-
-    var p = App.state.players[id];
-    assert.strictEqual(p.gamesPlayed, 0);
+    assert.strictEqual(App.state.players[id].gamesPlayed, 0);
     App.i18n.currentLang = 'en';
-    var text = p.gamesPlayed + App.t('gamesN');
-    assert.strictEqual(text, '0 games');
+    assert.strictEqual(App.tGames(0), '0 games');
+  });
+});
+
+describe('Polish plural rules', function() {
+  beforeEach(function() {
+    App.i18n.currentLang = 'pl';
+  });
+
+  it('should use "gra" for 1', function() {
+    assert.strictEqual(App.tGames(1), '1 gra');
+  });
+
+  it('should use "gry" for 2-4', function() {
+    assert.strictEqual(App.tGames(2), '2 gry');
+    assert.strictEqual(App.tGames(3), '3 gry');
+    assert.strictEqual(App.tGames(4), '4 gry');
+  });
+
+  it('should use "gier" for 5-21', function() {
+    assert.strictEqual(App.tGames(5), '5 gier');
+    assert.strictEqual(App.tGames(10), '10 gier');
+    assert.strictEqual(App.tGames(11), '11 gier');
+    assert.strictEqual(App.tGames(12), '12 gier');
+    assert.strictEqual(App.tGames(14), '14 gier');
+    assert.strictEqual(App.tGames(20), '20 gier');
+    assert.strictEqual(App.tGames(21), '21 gier');
+  });
+
+  it('should use "gry" for 22-24, 32-34, etc.', function() {
+    assert.strictEqual(App.tGames(22), '22 gry');
+    assert.strictEqual(App.tGames(23), '23 gry');
+    assert.strictEqual(App.tGames(24), '24 gry');
+    assert.strictEqual(App.tGames(32), '32 gry');
+  });
+
+  it('should use "gier" for 25-31, 35+', function() {
+    assert.strictEqual(App.tGames(25), '25 gier');
+    assert.strictEqual(App.tGames(30), '30 gier');
+    assert.strictEqual(App.tGames(100), '100 gier');
+  });
+
+  it('should use "gier" for 0', function() {
+    assert.strictEqual(App.tGames(0), '0 gier');
+  });
+});
+
+describe('English plural rules', function() {
+  beforeEach(function() {
+    App.i18n.currentLang = 'en';
+  });
+
+  it('should use "game" for 1', function() {
+    assert.strictEqual(App.tGames(1), '1 game');
+  });
+
+  it('should use "games" for other numbers', function() {
+    assert.strictEqual(App.tGames(0), '0 games');
+    assert.strictEqual(App.tGames(2), '2 games');
+    assert.strictEqual(App.tGames(5), '5 games');
+    assert.strictEqual(App.tGames(21), '21 games');
   });
 });

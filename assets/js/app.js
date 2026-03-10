@@ -1394,7 +1394,7 @@ App.UI = {
           '<span class="player-name">' + App.UI._esc(p.name) + '</span>' +
           wishText +
         '</div>' +
-        '<span class="player-games">' + p.gamesPlayed + App.t('gamesN') + '</span>' +
+        '<span class="player-games">' + App.tGames(p.gamesPlayed) + '</span>' +
         statusBadge +
         '<div class="player-actions">';
 
@@ -1507,7 +1507,7 @@ App.UI = {
         '<span class="queue-pos">' + (idx + 1) + '</span>' +
         '<span class="queue-number">#' + (p.number || '?') + '</span>' +
         '<span class="queue-name">' + App.UI._esc(p.name) + '</span>' +
-        '<span class="queue-wait">' + p.gamesPlayed + App.t('gamesN') + '</span>' +
+        '<span class="queue-wait">' + App.tGames(p.gamesPlayed) + '</span>' +
         '<span class="queue-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
           App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
         '<button class="btn btn-secondary btn-xs" data-action="queue-to-end" data-pid="' + pid + '">&darr;</button>' +
@@ -2076,7 +2076,7 @@ App.UI = {
         '<span class="bq-pos">' + (idx + 1) + '.</span>' +
         '<span class="bq-number">#' + (p.number || '?') + '</span>' +
         '<span class="bq-name">' + App.UI._esc(p.name) + '</span>' +
-        '<span class="bq-games">' + p.gamesPlayed + App.t('gamesN') + '</span>' +
+        '<span class="bq-games">' + App.tGames(p.gamesPlayed) + '</span>' +
         '<span class="bq-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
           App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
         '</div>';

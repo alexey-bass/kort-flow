@@ -129,7 +129,7 @@ App.i18n = {
       left: 'Wyszedł',
       toQueue: 'Do kolejki',
       fromQueue: 'Z kolejki',
-      gamesN: ' gier',
+      gamesOne: ' gra', gamesTwo: ' gry', gamesFive: ' gier',
       waitNew: 'nowy',
       waitMin: ' min',
       court: 'Kort ',
@@ -366,7 +366,7 @@ App.i18n = {
       left: 'Left',
       toQueue: 'To queue',
       fromQueue: 'From queue',
-      gamesN: ' games',
+      gamesOne: ' game', gamesTwo: ' games', gamesFive: ' games',
       waitNew: 'new',
       waitMin: ' min',
       court: 'Court ',
@@ -494,6 +494,17 @@ App.i18n = {
     return dict[key] !== undefined ? dict[key] : key;
   },
 
+  // Plural: 1 → 'one', 2-4 → 'few' (PL only), 5+ → 'many' (PL teens always 'many')
+  plural: function(n, forms) {
+    if (n === 1) return n + forms.one;
+    if (this.currentLang !== 'pl') return n + (forms.other || forms.many);
+    var abs = Math.abs(n);
+    var lastDigit = abs % 10;
+    var lastTwo = abs % 100;
+    if (lastDigit >= 2 && lastDigit <= 4 && (lastTwo < 12 || lastTwo > 14)) return n + forms.few;
+    return n + forms.many;
+  },
+
   // Apply translations to DOM elements with data-i18n attributes
   apply: function() {
     var self = this;
@@ -576,4 +587,14 @@ App.i18n = {
 // Shortcut for translation
 App.t = function(key) {
   return App.i18n.t(key);
+};
+
+// Shortcut for games plural
+App.tGames = function(n) {
+  return App.i18n.plural(n, {
+    one: App.i18n.t('gamesOne'),
+    few: App.i18n.t('gamesTwo'),
+    many: App.i18n.t('gamesFive'),
+    other: App.i18n.t('gamesFive')
+  });
 };
