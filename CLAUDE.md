@@ -84,9 +84,9 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | Tab       | Panel ID        | Mode        | Purpose                        |
 |-----------|-----------------|-------------|--------------------------------|
 | Board     | panel-board     | Both        | Player-facing court view       |
-| Today     | panel-dashboard | Admin only  | Stats, settings, actions       |
 | Players   | panel-players   | Both        | Add/remove, mark present       |
 | Queue     | panel-queue     | Admin only  | Queue management, reorder      |
+| Session   | panel-dashboard | Admin only  | Stats, settings, actions       |
 | Courts    | panel-courts    | Admin only  | Court management, start games  |
 | History   | panel-history   | Admin only  | Match history, filters, undo   |
 | Results   | panel-results   | Both        | Leaderboard (wins, points)     |
