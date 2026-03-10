@@ -1153,15 +1153,7 @@ App.UI = {
   },
 
   renderAll: function() {
-    this.renderSessionDate();
     this.renderCurrentTab();
-  },
-
-  renderSessionDate: function() {
-    var el = document.getElementById('sessionDate');
-    if (App.state) {
-      el.textContent = App.Utils.formatDate(App.state.date) + ', ' + App.state.dayName;
-    }
   },
 
   // --- Dashboard ---

@@ -1,4 +1,4 @@
-# Badminton 2x2 — Queue Manager
+# Badmixton Flow — Badminton 2x2 Queue Manager
 
 ## Project Overview
 
