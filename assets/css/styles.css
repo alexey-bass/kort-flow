@@ -1077,6 +1077,15 @@ body {
   font-size: 13px;
 }
 
+.session-id-row {
+  display: flex;
+  gap: 8px;
+}
+
+.session-id-row input {
+  flex: 1;
+}
+
 .share-link-row {
   display: flex;
   gap: 8px;

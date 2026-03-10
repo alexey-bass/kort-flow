@@ -2350,6 +2350,18 @@ App.UI = {
   _bindSync: function() {
     var self = this;
 
+    document.getElementById('btnAddSalt').addEventListener('click', function() {
+      var input = document.getElementById('sessionIdInput');
+      var current = input.value.trim();
+      if (!current) {
+        current = 'badminton-' + App.state.date;
+      }
+      // Remove existing salt (last -XXXXX suffix) if present, then add new one
+      current = current.replace(/-[a-z0-9]{5}$/, '');
+      var salt = Math.random().toString(36).substr(2, 5);
+      input.value = current + '-' + salt;
+    });
+
     document.getElementById('btnCreateSession').addEventListener('click', function() {
       var sessionId = document.getElementById('sessionIdInput').value.trim();
       if (!sessionId) {

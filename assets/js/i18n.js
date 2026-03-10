@@ -45,6 +45,7 @@ App.i18n = {
       createSession: 'Utwórz sesję',
       joinSession: 'Dołącz',
       disconnect: 'Rozłącz',
+      addSaltTooltip: 'Dodaj losowy kod — trudniej zgadnąć ID',
       shareLink: 'Link do udostępnienia:',
       copyLink: 'Kopiuj',
       linkCopied: 'Link skopiowany!',
@@ -274,6 +275,7 @@ App.i18n = {
       createSession: 'Create session',
       joinSession: 'Join',
       disconnect: 'Disconnect',
+      addSaltTooltip: 'Add random code — harder to guess the ID',
       shareLink: 'Share link:',
       copyLink: 'Copy',
       linkCopied: 'Link copied!',
@@ -494,6 +496,13 @@ App.i18n = {
       var key = el.getAttribute('data-i18n-placeholder');
       var val = self.t(key);
       if (val !== key) el.placeholder = val;
+    });
+
+    // data-i18n-title — set title attribute
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n-title');
+      var val = self.t(key);
+      if (val !== key) el.title = val;
     });
 
     // data-i18n-opt — set option text
