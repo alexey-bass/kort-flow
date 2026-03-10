@@ -21,12 +21,12 @@ index.html                      — App shell, 10 tab panels, modal, toast conta
 assets/css/styles.css           — All styles, CSS variables, responsive breakpoints
 assets/js/app.js                — Application logic (App.Utils through App.DnD)
 assets/js/i18n.js               — App object init, translations (Polish + English), i18n engine
-assets/js/firebase-config.js    — Firebase config + Google Analytics measurement ID
+assets/js/firebase-config.js    — Firebase config (legacy, now inlined in index.html)
 assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
 package.json                    — npm start script (python3 http.server)
 ```
 
-**Load order:** `assets/js/firebase-config.js` (head) → Firebase SDK (CDN) → `assets/js/i18n.js` → `assets/js/app.js`
+**Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, bottom) → `assets/js/i18n.js` → `assets/js/app.js`
 
 ## How to Run
 
@@ -48,7 +48,7 @@ npm run validate   # runs syntax check + tests
 - Every new feature must be covered with tests
 - README must be updated when adding features
 - All tests must pass before committing
-- When committing changes to `assets/css/styles.css`, `assets/js/firebase-config.js`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting query string in `index.html` for the changed files
+- When committing changes to `assets/css/styles.css`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting query string in `index.html` for the changed files
 
 ### Testing:
 ```bash
@@ -133,7 +133,7 @@ Toggle between modes with the gear icon in the header. Help button (`?`) in head
 ### Firebase Sync
 - Admin creates a session on Sync tab, shares the link
 - Shareable URL with `?session=` parameter for auto-join
-- Config in `assets/js/firebase-config.js` (public by design for web apps)
+- Config inlined in `index.html` `<head>` (public by design for web apps)
 - Not required for local single-device use
 
 ### Data Migration

@@ -4,7 +4,7 @@
   "scripts": {
     "start": "python3 -m http.server 8080",
     "test": "node --test test/*.test.js",
-    "check": "node --check assets/js/app.js && node --check assets/js/i18n.js && node --check assets/js/firebase-config.js",
+    "check": "node --check assets/js/app.js && node --check assets/js/i18n.js",
     "validate": "npm run check && npm test"
   }
 }

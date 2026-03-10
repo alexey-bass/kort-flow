@@ -73,15 +73,14 @@ function loadApp() {
 
   var dir = path.resolve(__dirname, '..');
 
-  var configSrc = fs.readFileSync(dir + '/assets/js/firebase-config.js', 'utf8');
+  // Firebase config (inlined, same as index.html)
+  global.FIREBASE_CONFIG = { apiKey: 'test', databaseURL: 'https://test.firebaseio.com', projectId: 'test' };
+
   var i18nSrc = fs.readFileSync(dir + '/assets/js/i18n.js', 'utf8');
   var appSrc = fs.readFileSync(dir + '/assets/js/app.js', 'utf8');
 
   // Remove DOMContentLoaded listener
   appSrc = appSrc.replace(/document\.addEventListener\('DOMContentLoaded'.*\);/, '');
-
-  // Execute in global context using vm.runInThisContext
-  vm.runInThisContext(configSrc, { filename: 'firebase-config.js' });
   vm.runInThisContext(i18nSrc, { filename: 'i18n.js' });
   vm.runInThisContext(appSrc, { filename: 'app.js' });
 
