@@ -1095,6 +1095,7 @@ App.UI = {
     this._bindSync();
     this._bindDebug();
     this._bindModeToggle();
+    this._bindHelp();
     this.startTimers();
   },
 
@@ -2404,6 +2405,25 @@ App.UI = {
         App.UI.showToast(App.t('debugCleared'));
         setTimeout(function() { window.location.reload(); }, 500);
       });
+    });
+  },
+
+  _bindHelp: function() {
+    document.getElementById('btnHelp').addEventListener('click', function() {
+      var steps = App.t('helpSteps');
+      var html = '<h3>' + App.t('helpTitle') + '</h3>';
+      html += '<ol class="help-steps">';
+      for (var i = 0; i < steps.length; i++) {
+        html += '<li>' + steps[i] + '</li>';
+      }
+      html += '</ol>';
+      html += '<p class="help-wish">' + App.t('helpWish') + '</p>';
+      html += '<div class="btn-row"><button class="btn btn-secondary" id="btnCloseHelp">' + App.t('close') + '</button></div>';
+      App.UI.showModal(html);
+      document.getElementById('btnCloseHelp').addEventListener('click', function() {
+        App.UI.hideModal();
+      });
+      App.Analytics.track('help_open');
     });
   },
 

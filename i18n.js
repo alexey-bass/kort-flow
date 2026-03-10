@@ -66,6 +66,19 @@ App.i18n = {
       scoreOptional: 'Wynik opcjonalny',
       finishConfirm: 'Zakończ',
 
+      // Help
+      helpTitle: 'Jak to działa?',
+      helpSteps: [
+        '<b>Dodaj graczy</b> — zakładka Gracze, wpisz imię',
+        '<b>Oznacz obecnych</b> — kliknij „Przyszedł" przy każdym graczu',
+        '<b>Rozpocznij grę</b> — na Tablicy kliknij „Zaproponuj" na wolnym korcie',
+        '<b>Wybierz skład</b> — zaakceptuj propozycję lub dostosuj zespoły',
+        '<b>Zakończ grę</b> — kliknij „Zakończ", opcjonalnie podaj wynik',
+        '<b>Powtórz</b> — gracze wracają do kolejki automatycznie'
+      ],
+      helpWish: 'Kliknij ❤️ przy graczu, aby wybrać z kim chce grać',
+      close: 'Zamknij',
+
       // Admin login
       adminLogin: 'Tryb administratora',
       passwordPlaceholder: 'Hasło',
@@ -279,6 +292,19 @@ App.i18n = {
       finishGameTitle: 'Finish game — court',
       scoreOptional: 'Score is optional',
       finishConfirm: 'Finish',
+
+      // Help
+      helpTitle: 'How does it work?',
+      helpSteps: [
+        '<b>Add players</b> — Players tab, enter a name',
+        '<b>Mark present</b> — tap "Arrived" for each player',
+        '<b>Start a game</b> — on Board, tap "Suggest" on a free court',
+        '<b>Pick teams</b> — accept the suggestion or customize teams',
+        '<b>Finish game</b> — tap "Finish", optionally enter the score',
+        '<b>Repeat</b> — players return to queue automatically'
+      ],
+      helpWish: 'Tap ❤️ next to a player to pick who they want to play with',
+      close: 'Close',
 
       // Admin login
       adminLogin: 'Admin mode',
