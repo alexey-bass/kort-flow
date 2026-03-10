@@ -13,6 +13,7 @@ Web app for managing player queues and court assignments during amateur badminto
 - **Team splitting** — minimizes pair/opponent repeats, respects wish pairings, custom swap option with bench
 - **Score tracking** — optional score input on game finish, win/loss and points per player
 - **Results leaderboard** — ranked by wins, win rate, and point differential
+- **Session highlights** — fun stats: most active, win streak, top scorer, social butterfly, rivals
 - **Match history** — filterable by court and player, with undo
 - **Drag-and-drop** — reorder queue manually (mouse + touch)
 - **Two UI modes** — Board (player-facing: courts, queue, results) and Management (admin: full control)

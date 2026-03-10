@@ -60,6 +60,12 @@ App.i18n = {
       resultsGames: 'Gry',
       resultsWinRate: 'Win%',
       resultsPoints: 'Pkt',
+      sessionHighlights: 'Podsumowanie sesji',
+      hlMostActive: 'Najbardziej aktywny',
+      hlWinStreak: 'Seria zwycięstw',
+      hlTopScorer: 'Najlepszy strzelec',
+      hlSocialButterfly: 'Grał z każdym',
+      hlRivals: 'Rywale dnia',
 
       // Finish confirm
       finishGameTitle: 'Zakończ grę — kort',
@@ -287,6 +293,12 @@ App.i18n = {
       resultsGames: 'Games',
       resultsWinRate: 'Win%',
       resultsPoints: 'Pts',
+      sessionHighlights: 'Session Highlights',
+      hlMostActive: 'Most active',
+      hlWinStreak: 'Win streak',
+      hlTopScorer: 'Top scorer',
+      hlSocialButterfly: 'Social butterfly',
+      hlRivals: 'Rivals of the day',
 
       // Finish confirm
       finishGameTitle: 'Finish game — court',

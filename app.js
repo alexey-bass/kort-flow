@@ -2202,7 +2202,129 @@ App.UI = {
     });
 
     html += '</tbody></table>';
+
+    // --- Session Highlights ---
+    var highlights = this._buildHighlights(players);
+    if (highlights.length > 0) {
+      html += '<div class="highlights-section">';
+      html += '<h3>' + App.t('sessionHighlights') + '</h3>';
+      html += '<div class="highlights-grid">';
+      highlights.forEach(function(h) {
+        html += '<div class="highlight-card">';
+        html += '<div class="highlight-icon">' + h.icon + '</div>';
+        html += '<div class="highlight-label">' + h.label + '</div>';
+        html += '<div class="highlight-value">' + h.value + '</div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
     document.getElementById('resultsContent').innerHTML = html;
+  },
+
+  _buildHighlights: function(players) {
+    var highlights = [];
+    var esc = this._esc.bind(this);
+
+    // 1. Most active — most games played
+    var mostActive = players.reduce(function(a, b) { return b.gamesPlayed > a.gamesPlayed ? b : a; }, players[0]);
+    if (mostActive && mostActive.gamesPlayed > 0) {
+      highlights.push({
+        icon: '🏸',
+        label: App.t('hlMostActive'),
+        value: esc(mostActive.name) + ' (' + mostActive.gamesPlayed + ')'
+      });
+    }
+
+    // 2. Win streak — longest consecutive wins from match history
+    var scoredMatches = Object.values(App.state.matches)
+      .filter(function(m) { return m.status === 'finished' && m.score; })
+      .sort(function(a, b) { return a.endTime - b.endTime; });
+
+    if (scoredMatches.length > 0) {
+      var streaks = {};
+      scoredMatches.forEach(function(m) {
+        var parts = m.score.split('-').map(function(s) { return parseInt(s.trim()); });
+        if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return;
+        var winners = parts[0] >= parts[1] ? m.teamA : m.teamB;
+        var losers = parts[0] >= parts[1] ? m.teamB : m.teamA;
+        winners.forEach(function(pid) {
+          if (!streaks[pid]) streaks[pid] = { current: 0, best: 0 };
+          streaks[pid].current++;
+          if (streaks[pid].current > streaks[pid].best) streaks[pid].best = streaks[pid].current;
+        });
+        losers.forEach(function(pid) {
+          if (!streaks[pid]) streaks[pid] = { current: 0, best: 0 };
+          streaks[pid].current = 0;
+        });
+      });
+
+      var bestStreakPid = null, bestStreak = 0;
+      Object.keys(streaks).forEach(function(pid) {
+        if (streaks[pid].best > bestStreak) {
+          bestStreak = streaks[pid].best;
+          bestStreakPid = pid;
+        }
+      });
+      if (bestStreakPid && bestStreak >= 2 && App.state.players[bestStreakPid]) {
+        highlights.push({
+          icon: '🔥',
+          label: App.t('hlWinStreak'),
+          value: esc(App.state.players[bestStreakPid].name) + ' (' + bestStreak + ')'
+        });
+      }
+    }
+
+    // 3. Top scorer — most points scored
+    var hasScores = players.some(function(p) { return (p.pointsScored || 0) > 0; });
+    if (hasScores) {
+      var topScorer = players.reduce(function(a, b) {
+        return (b.pointsScored || 0) > (a.pointsScored || 0) ? b : a;
+      }, players[0]);
+      if (topScorer && (topScorer.pointsScored || 0) > 0) {
+        highlights.push({
+          icon: '🎯',
+          label: App.t('hlTopScorer'),
+          value: esc(topScorer.name) + ' (' + topScorer.pointsScored + ')'
+        });
+      }
+    }
+
+    // 4. Social butterfly — played with most unique partners
+    var mostPartners = players.reduce(function(a, b) {
+      var aCount = a.partnerHistory ? Object.keys(a.partnerHistory).length : 0;
+      var bCount = b.partnerHistory ? Object.keys(b.partnerHistory).length : 0;
+      return bCount > aCount ? b : a;
+    }, players[0]);
+    var partnerCount = mostPartners && mostPartners.partnerHistory ? Object.keys(mostPartners.partnerHistory).length : 0;
+    if (partnerCount >= 2) {
+      highlights.push({
+        icon: '🦋',
+        label: App.t('hlSocialButterfly'),
+        value: esc(mostPartners.name) + ' (' + partnerCount + ')'
+      });
+    }
+
+    // 5. Rivals — opponent pair that faced each other most
+    var rivalBest = { count: 0, a: null, b: null };
+    players.forEach(function(p) {
+      if (!p.opponentHistory) return;
+      Object.keys(p.opponentHistory).forEach(function(oppId) {
+        var count = p.opponentHistory[oppId];
+        if (count > rivalBest.count && p.id < oppId) {
+          rivalBest = { count: count, a: p.id, b: oppId };
+        }
+      });
+    });
+    if (rivalBest.count >= 2 && App.state.players[rivalBest.a] && App.state.players[rivalBest.b]) {
+      highlights.push({
+        icon: '⚔️',
+        label: App.t('hlRivals'),
+        value: esc(App.state.players[rivalBest.a].name) + ' & ' + esc(App.state.players[rivalBest.b].name) + ' (' + rivalBest.count + ')'
+      });
+    }
+
+    return highlights;
   },
 
   renderSync: function() {
