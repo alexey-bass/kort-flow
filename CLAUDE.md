@@ -47,6 +47,7 @@ npm run validate   # runs syntax check + tests
 - Every new feature must be covered with tests
 - README must be updated when adding features
 - All tests must pass before committing
+- When committing changes to `styles.css`, `firebase-config.js`, `i18n.js`, or `app.js`, bump the `?v=` cache-busting query string in `index.html` for the changed files
 
 ### Testing:
 ```bash
