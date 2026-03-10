@@ -123,7 +123,7 @@ Toggle between modes with the gear icon in the header. Help button (`?`) in head
 
 ### i18n (Internationalization)
 - Two languages: Polish (default) and English
-- Static text uses `data-i18n` attributes on HTML elements
+- Static text uses `data-i18n` attributes on HTML elements (also `data-i18n-placeholder`, `data-i18n-title`, `data-i18n-opt`)
 - Dynamic text uses `App.t('key')` function calls
 - Language preference saved in `localStorage` (`badminton_lang`)
 - Switcher in header with flag buttons
