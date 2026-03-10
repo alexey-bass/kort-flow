@@ -6,11 +6,11 @@ Web app for managing player queues and court assignments during amateur badminto
 
 ## Features
 
-- **Player management** — add, remove, mark present/absent, partner wishes
+- **Player management** — add, remove, mark present/absent, multiple partner wishes
 - **Living queue** — automatic arrival numbering, auto-requeue after each game
 - **Smart suggestions** — algorithm picks next 4 players based on queue position, games balance, and wishes
 - **Court management** — 1–5 configurable courts, finish confirmation with optional score
-- **Team splitting** — minimizes pair/opponent repeats, respects wish pairings
+- **Team splitting** — minimizes pair/opponent repeats, respects wish pairings, custom swap option with bench
 - **Score tracking** — optional score input on game finish, win/loss and points per player
 - **Results leaderboard** — ranked by wins, win rate, and point differential
 - **Match history** — filterable by court and player, with undo
@@ -65,6 +65,8 @@ Then splits them into two teams minimizing:
 - Pair repeat penalty
 - Opponent repeat penalty
 - While maximizing wish fulfillment
+
+Three algorithmic split options are shown, plus a **Custom** option where players can tap to swap teammates between teams or bring in anyone from the queue bench.
 
 ### Score Tracking
 

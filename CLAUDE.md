@@ -101,10 +101,11 @@ Scores each candidate by:
 - Games above average penalty (weight: 50 per game)
 - Unfulfilled wish bonus (-80)
 
-Team split scoring:
+Team split scoring (3 algorithmic options + custom):
 - Pair repeat penalty (30 per repeat)
 - Opponent repeat penalty (15 per repeat beyond 1st)
 - Wish fulfillment bonus (-100)
+- 4th "Custom" option: tap-to-swap players between teams or with bench players from queue
 
 ### Two UI Modes
 - **Board** (player-facing): Courts with teams + timer, queue list, results. One-tap "Finish" with score input.
@@ -133,7 +134,7 @@ Toggle between modes with the gear icon in the header.
 ### Data Migration
 - `App.Storage._ensureState()` validates and fills missing fields on load
 - Handles corrupted localStorage, old versions, and Firebase sync data
-- Player fields auto-migrated (partnerHistory, wins, losses, points, etc.)
+- Player fields auto-migrated (partnerHistory, wins, losses, points, wishedPartner→wishedPartners, etc.)
 
 ## Data Model
 
@@ -154,7 +155,7 @@ Session state stored in `localStorage` as `badminton_session_YYYY-MM-DD`:
 }
 ```
 
-**Player:** `{ id, number, name, present, gamesPlayed, lastGameEndTime, queueEntryTime, partnerHistory, opponentHistory, wishedPartner, wishFulfilled, wins, losses, pointsScored, pointsConceded }`
+**Player:** `{ id, number, name, present, gamesPlayed, lastGameEndTime, queueEntryTime, partnerHistory, opponentHistory, wishedPartners: [id, ...], wishesFulfilled: [id, ...], wins, losses, pointsScored, pointsConceded }`
 
 **Court:** `{ id, displayNumber, active, occupied, currentMatch, gameStartTime }`
 
