@@ -55,6 +55,7 @@ npm run validate   # runs syntax check + tests + lighthouse
 ```
 
 ### Rules:
+- Every new feature or bug fix must have a GitHub issue (create one if not exists), closed when done (use `Fixes #N` in commit message)
 - Every new feature must be covered with tests
 - README and CLAUDE.md must be updated when adding features
 - All tests must pass before committing
