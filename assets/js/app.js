@@ -1349,9 +1349,36 @@ App.UI = {
       App.Lock.unlock();
     });
 
+    document.getElementById('autoLockEnabled').addEventListener('change', function() {
+      var timeInput = document.getElementById('autoLockTime');
+      var status = document.getElementById('autoLockStatus');
+      if (this.checked) {
+        timeInput.hidden = false;
+        timeInput.focus();
+        status.hidden = true;
+      } else {
+        timeInput.hidden = true;
+        timeInput.value = '';
+        App.state.settings.autoLockTime = null;
+        App.save();
+        status.textContent = App.t('autoLockDisabled');
+        status.className = 'auto-lock-status disabled';
+        status.hidden = false;
+      }
+    });
+
     document.getElementById('autoLockTime').addEventListener('change', function() {
-      App.state.settings.autoLockTime = this.value || null;
+      var time = this.value || null;
+      App.state.settings.autoLockTime = time;
       App.save();
+      var status = document.getElementById('autoLockStatus');
+      if (time) {
+        status.textContent = App.t('autoLockAt') + time;
+        status.className = 'auto-lock-status active';
+        status.hidden = false;
+      } else {
+        status.hidden = true;
+      }
     });
   },
 
@@ -1376,9 +1403,20 @@ App.UI = {
 
     // Update lock controls
     var locked = App.Lock.isLocked();
+    var autoTime = App.state.settings.autoLockTime;
     document.getElementById('btnLockSession').hidden = locked;
     document.getElementById('btnUnlockSession').hidden = !locked;
-    document.getElementById('autoLockTime').value = App.state.settings.autoLockTime || '';
+    document.getElementById('autoLockEnabled').checked = !!autoTime;
+    document.getElementById('autoLockTime').value = autoTime || '';
+    document.getElementById('autoLockTime').hidden = !autoTime;
+    var status = document.getElementById('autoLockStatus');
+    if (autoTime) {
+      status.textContent = App.t('autoLockAt') + autoTime;
+      status.className = 'auto-lock-status active';
+      status.hidden = false;
+    } else {
+      status.hidden = true;
+    }
   },
 
   // --- Players ---

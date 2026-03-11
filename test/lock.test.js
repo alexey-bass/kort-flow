@@ -116,7 +116,7 @@ describe('App.Lock', function() {
   describe('i18n keys', function() {
     it('should have lock translations in both languages', function() {
       var keys = ['sessionLock', 'lockSession', 'unlockSession', 'autoLockLabel',
-                  'autoLockHint', 'sessionLocked', 'sessionUnlocked', 'sessionAutoLocked'];
+                  'autoLockAt', 'autoLockDisabled', 'sessionLocked', 'sessionUnlocked', 'sessionAutoLocked'];
       keys.forEach(function(key) {
         assert.notStrictEqual(App.i18n.translations.pl[key], undefined, 'Missing PL: ' + key);
         assert.notStrictEqual(App.i18n.translations.en[key], undefined, 'Missing EN: ' + key);

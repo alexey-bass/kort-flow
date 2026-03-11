@@ -352,6 +352,34 @@ body.player-mode .admin-only {
   margin: 4px 0 12px;
 }
 
+/* --- Checkbox row --- */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.auto-lock-status {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.auto-lock-status.active {
+  color: var(--success);
+}
+
+.auto-lock-status.disabled {
+  color: var(--text-secondary);
+}
+
 /* --- Cards / blocks --- */
 .section-block {
   background: var(--card);
