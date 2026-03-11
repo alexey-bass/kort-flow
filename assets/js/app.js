@@ -2755,6 +2755,7 @@ App.UI = {
 
   // --- Timers ---
   startTimers: function() {
+    if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = setInterval(function() {
       var now = Date.now();
       // Update court timers (skip if no active games)
