@@ -1122,9 +1122,12 @@ App.Sync = {
     this._updateStatus('disconnected');
   },
 
+  _lastSyncTime: null,
+
   _blink: function() {
     var indicator = document.getElementById('syncIndicator');
     if (indicator.hidden) return;
+    this._lastSyncTime = new Date();
     indicator.classList.remove('blink');
     // Force reflow to restart animation
     void indicator.offsetWidth;
@@ -2707,10 +2710,14 @@ App.UI = {
     // Sync state
     var syncHtml;
     if (App.Sync.connected) {
+      var lastSync = App.Sync._lastSyncTime
+        ? App.Sync._lastSyncTime.toLocaleTimeString()
+        : '—';
       syncHtml = '<table class="debug-table">' +
         '<tr><td>Status</td><td><strong style="color:var(--success)">' + App.t('debugSyncOn') + '</strong></td></tr>' +
         '<tr><td>' + App.t('debugSyncSession') + '</td><td><strong>' + (s.settings.syncSessionId || '—') + '</strong></td></tr>' +
         '<tr><td>Firebase ref</td><td><code>' + (App.Sync.ref ? App.Sync.ref.toString() : '—') + '</code></td></tr>' +
+        '<tr><td>' + App.t('debugLastSync') + '</td><td><strong>' + lastSync + '</strong></td></tr>' +
         '</table>';
     } else {
       syncHtml = '<p style="color:var(--text-secondary)">' + App.t('debugSyncOff') + '</p>';
