@@ -17,6 +17,7 @@ Web app for managing player queues and court assignments during amateur badminto
 - **Match history** — filterable by court and player, with undo
 - **Drag-and-drop** — reorder queue manually (mouse + touch)
 - **Two UI modes** — Board (player-facing: courts, queue, results) and Management (admin: full control)
+- **Offline-first PWA** — service worker caches the app for instant loads and offline use, installable on mobile
 - **Multi-device sync** — Firebase Realtime Database, shareable session links with auto-join
 - **Quick help** — in-app instructions modal, translated
 - **i18n** — Polish (default) and English, with proper plural forms
@@ -57,7 +58,10 @@ index.html                      — App shell, 10 tab panels, modals
 assets/css/styles.css           — All styles, CSS variables, responsive breakpoints
 assets/js/app.js                — Application logic
 assets/js/i18n.js               — Translations (Polish + English) and i18n engine
-assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
+assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px, 192px, 512px)
+manifest.json                   — PWA manifest (name, icons, theme)
+service-worker.js               — Offline-first cache for app shell
+hooks/pre-commit                — Auto-stamps version, cache-bust params, SW version
 package.json                    — npm start script for local dev server
 CLAUDE.md                       — AI assistant context (architecture, data model)
 PLAN.md                         — Development roadmap
@@ -104,6 +108,7 @@ Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 ## Tech Stack
 
 - Pure HTML / CSS / JavaScript — no frameworks, no build tools
+- PWA with service worker — offline-first, installable
 - Firebase Realtime Database v10.12.0 (compat SDK, loaded via CDN)
 - `localStorage` for persistence
 - Google Analytics (gtag.js)

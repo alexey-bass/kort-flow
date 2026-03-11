@@ -20,4 +20,14 @@ bump_version "assets/css/styles.css"
 bump_version "assets/js/i18n.js"
 bump_version "assets/js/app.js"
 
+# Bump service worker cache version when any cached asset changes
+if git diff --cached --name-only | grep -qE "^(index\.html|assets/|manifest\.json)"; then
+  current_sw=$(grep 'CACHE_VERSION = ' service-worker.js | sed 's/[^0-9]//g')
+  if [ -n "$current_sw" ]; then
+    new_sw=$((current_sw + 1))
+    sed -i '' "s/CACHE_VERSION = ${current_sw}/CACHE_VERSION = ${new_sw}/" service-worker.js
+    git add service-worker.js
+  fi
+fi
+
 git add index.html

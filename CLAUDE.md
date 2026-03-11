@@ -9,6 +9,7 @@ Local web app for managing player queue and court assignments during amateur bad
 ## Tech Stack
 
 - Pure HTML / CSS / JavaScript — no frameworks, no build tools, no npm
+- PWA with service worker — offline-first, installable on mobile
 - `localStorage` for data persistence (survives refresh)
 - Firebase Realtime Database v10.12.0 (compat SDK) for optional multi-device sync (CDN script tags)
 - Google Analytics (gtag.js)
@@ -22,11 +23,20 @@ index.html                      — App shell, 10 tab panels, modal, toast conta
 assets/css/styles.css           — All styles, CSS variables, responsive breakpoints
 assets/js/app.js                — Application logic (App.Utils through App.DnD)
 assets/js/i18n.js               — App object init, translations (Polish + English), i18n engine
-assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
+assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px, 192px, 512px)
+manifest.json                   — PWA manifest (name, icons, theme)
+service-worker.js               — Offline-first cache for app shell
+hooks/pre-commit                — Auto-stamps version, cache-bust params, SW version
 package.json                    — npm start script (python3 http.server)
 ```
 
-**Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, defer) → `assets/js/i18n.js` (defer) → `assets/js/app.js` (defer)
+**Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, defer) → `assets/js/i18n.js` (defer) → `assets/js/app.js` (defer) → service worker registration
+
+### Service Worker
+- Caches app shell (HTML, CSS, JS, icons, manifest) for offline use
+- Strategy: stale-while-revalidate (serve from cache, update in background)
+- `CACHE_VERSION` in `service-worker.js` is auto-bumped by pre-commit hook when app files change
+- External resources (Firebase CDN, Analytics) are network-only — not cached
 
 ## How to Run
 
