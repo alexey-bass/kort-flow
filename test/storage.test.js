@@ -74,6 +74,65 @@ describe('App.Storage', function() {
     });
   });
 
+  describe('_keySuffix', function() {
+    it('should return date when sync is disabled', function() {
+      App.Session.create();
+      assert.strictEqual(App.Storage._keySuffix(), App.state.date);
+    });
+
+    it('should return syncSessionId when sync is enabled', function() {
+      App.Session.create();
+      App.state.settings.syncEnabled = true;
+      App.state.settings.syncSessionId = 'badminton-2026-03-11-a3x9k';
+      assert.strictEqual(App.Storage._keySuffix(), 'badminton-2026-03-11-a3x9k');
+    });
+  });
+
+  describe('sync-aware save and load', function() {
+    it('should save under sync key when sync is enabled', function() {
+      App.Session.create();
+      App.state.settings.syncEnabled = true;
+      App.state.settings.syncSessionId = 'test-session-abc';
+      App.Storage.save();
+
+      var loaded = App.Storage.load('test-session-abc');
+      assert.ok(loaded);
+      assert.strictEqual(loaded.settings.syncSessionId, 'test-session-abc');
+    });
+
+    it('should save sync session under sync key, not date key', function() {
+      App.Session.create();
+      localStorage.clear(); // clear the date-keyed save from create()
+      App.state.settings.syncEnabled = true;
+      App.state.settings.syncSessionId = 'test-session-xyz';
+      App.Storage.save();
+
+      // Should be found by sync ID
+      assert.ok(App.Storage.load('test-session-xyz'));
+      // Should not be found by date
+      assert.strictEqual(App.Storage.load(App.state.date), null);
+    });
+
+    it('should store last key suffix', function() {
+      App.Session.create();
+      App.state.settings.syncEnabled = true;
+      App.state.settings.syncSessionId = 'my-session';
+      App.Storage.save();
+
+      assert.strictEqual(localStorage.getItem(App.Storage.LAST_KEY), 'my-session');
+    });
+
+    it('should track sync session in index', function() {
+      App.Session.create();
+      App.state.settings.syncEnabled = true;
+      App.state.settings.syncSessionId = 'indexed-session';
+      App.Storage.save();
+
+      var index = App.Storage.getIndex();
+      assert.ok(index.includes('indexed-session'));
+    });
+  });
+
   describe('getIndex', function() {
     it('should return empty array when no index exists', function() {
       assert.deepStrictEqual(App.Storage.getIndex(), []);

@@ -188,7 +188,7 @@ Header layout (left to right): title, lock indicator (🔒) | language switcher,
 
 ## Data Model
 
-Session state stored in `localStorage` as `badminton_session_YYYY-MM-DD`:
+Session state stored in `localStorage` as `bs_YYYY-MM-DD` (local) or `bs_<syncSessionId>` (synced). `bs_last` tracks the most recent key suffix. Index at `bs_index`.
 
 ```
 {

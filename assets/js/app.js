@@ -70,20 +70,31 @@ App.Utils = {
 // STORAGE — localStorage + export/import
 // ============================================================
 App.Storage = {
-  SESSION_PREFIX: 'badminton_session_',
+  SESSION_PREFIX: 'bs_',
   SETTINGS_KEY: 'badminton_settings',
-  INDEX_KEY: 'badminton_sessions_index',
+  INDEX_KEY: 'bs_index',
+  LAST_KEY: 'bs_last',
+
+  // Returns the localStorage key suffix for the current session
+  _keySuffix: function() {
+    if (App.state && App.state.settings.syncEnabled && App.state.settings.syncSessionId) {
+      return App.state.settings.syncSessionId;
+    }
+    return App.state ? App.state.date : App.Utils.getISODate(new Date());
+  },
 
   save: function() {
     if (!App.state) return;
     App.state.lastModified = Date.now();
-    var key = this.SESSION_PREFIX + App.state.date;
+    var suffix = this._keySuffix();
+    var key = this.SESSION_PREFIX + suffix;
     try {
       localStorage.setItem(key, JSON.stringify(App.state));
+      localStorage.setItem(this.LAST_KEY, suffix);
       // Update session index
       var index = this.getIndex();
-      if (index.indexOf(App.state.date) === -1) {
-        index.unshift(App.state.date);
+      if (index.indexOf(suffix) === -1) {
+        index.unshift(suffix);
         localStorage.setItem(this.INDEX_KEY, JSON.stringify(index));
       }
     } catch (e) {
@@ -91,8 +102,8 @@ App.Storage = {
     }
   },
 
-  load: function(dateStr) {
-    var key = this.SESSION_PREFIX + (dateStr || App.Utils.getISODate(new Date()));
+  load: function(identifier) {
+    var key = this.SESSION_PREFIX + (identifier || App.Utils.getISODate(new Date()));
     var data = localStorage.getItem(key);
     if (data) {
       try {
@@ -1246,7 +1257,7 @@ App.Sync = {
     // Save to localStorage without bumping lastModified — preserve the remote
     // timestamp so future comparisons use the sender's clock, avoiding clock
     // skew between devices that would silently drop updates.
-    var key = App.Storage.SESSION_PREFIX + App.state.date;
+    var key = App.Storage.SESSION_PREFIX + App.Storage._keySuffix();
     try {
       localStorage.setItem(key, JSON.stringify(App.state));
     } catch (e) {
@@ -3583,8 +3594,16 @@ App.init = function() {
 
   var today = App.Utils.getISODate(new Date());
 
-  // Try to load today's session
+  // Try to load today's session, then last session, otherwise create new
   var saved = App.Storage.load(today);
+  if (!saved) {
+    var lastSuffix = localStorage.getItem(App.Storage.LAST_KEY);
+    if (lastSuffix && lastSuffix !== today) {
+      saved = App.Storage.load(lastSuffix);
+      // Only restore if it's from today (sync session with different key)
+      if (saved && saved.date !== today) saved = null;
+    }
+  }
   if (saved) {
     App.state = saved;
   } else {
