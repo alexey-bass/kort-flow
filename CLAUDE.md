@@ -129,6 +129,7 @@ Toggle between modes with the gear icon in the header. Help button (`?`) in head
 - Pluralization via `App.i18n.plural(n, {one, few, many, other})` — handles Polish grammar (1→one, 2-4→few, 5+→many)
 - `App.tGames(n)` shortcut for games plural (e.g., "1 gra", "2 gry", "5 gier")
 - Language preference saved in `localStorage` (`badminton_lang`)
+- UI mode (admin/player) saved in `localStorage` (`badminton_mode`), restored on refresh
 - Switcher in header with flag buttons
 
 ### Firebase Sync
