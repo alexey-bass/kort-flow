@@ -104,8 +104,9 @@ body {
 }
 
 .sync-indicator {
-  font-size: 12px;
+  font-size: 36px;
   color: #4ade80;
+  line-height: 1;
 }
 
 .sync-indicator.disconnected {
