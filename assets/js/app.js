@@ -2928,6 +2928,7 @@ App.DnD = {
     var dragItem = null;
     var startY = 0;
     var clone = null;
+    var rafPending = false;
 
     container.addEventListener('touchstart', function(e) {
       var handle = e.target.closest('.drag-handle');
@@ -2958,23 +2959,33 @@ App.DnD = {
       e.preventDefault();
 
       var touch = e.touches[0];
-      clone.style.top = touch.clientY - 20 + 'px';
+      var touchX = touch.clientX;
+      var touchY = touch.clientY;
+      clone.style.top = touchY - 20 + 'px';
 
-      // Find element under finger
-      clone.style.display = 'none';
-      var elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-      clone.style.display = '';
+      // Throttle hit-testing to animation frame rate
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(function() {
+        rafPending = false;
+        if (!clone) return;
 
-      container.querySelectorAll('.drag-over').forEach(function(el) {
-        el.classList.remove('drag-over');
-      });
+        // Find element under finger
+        clone.style.display = 'none';
+        var elementBelow = document.elementFromPoint(touchX, touchY);
+        clone.style.display = '';
 
-      if (elementBelow) {
-        var targetItem = elementBelow.closest('.queue-item');
-        if (targetItem && targetItem !== dragItem) {
-          targetItem.classList.add('drag-over');
+        container.querySelectorAll('.drag-over').forEach(function(el) {
+          el.classList.remove('drag-over');
+        });
+
+        if (elementBelow) {
+          var targetItem = elementBelow.closest('.queue-item');
+          if (targetItem && targetItem !== dragItem) {
+            targetItem.classList.add('drag-over');
+          }
         }
-      }
+      });
     }, { passive: false });
 
     container.addEventListener('touchend', function(e) {
