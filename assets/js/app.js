@@ -2813,7 +2813,8 @@ App.UI = {
     } else if (mode === 'keepPlayers') {
       // Keep players but reset stats, queue, matches
       var players = App.state.players;
-      var courtNumbers = App.state.settings.courtNumbers || [1, 2, 3, 4];
+      var courtNumbers = Object.values(App.state.courts).map(function(c) { return c.displayNumber; });
+      if (courtNumbers.length === 0) courtNumbers = [1, 2, 3, 4];
       App.Session.create();
       App.state.players = players;
       Object.keys(players).forEach(function(id) {

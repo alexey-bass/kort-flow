@@ -1,4 +1,4 @@
-var { describe, it, beforeEach } = require('node:test');
+var { describe, it, beforeEach, afterEach } = require('node:test');
 var assert = require('node:assert');
 var { loadApp } = require('./helpers');
 
@@ -280,6 +280,93 @@ describe('App.Sync', function() {
 
       // Must keep the remote timestamp, not overwrite with local Date.now()
       assert.strictEqual(App.state.lastModified, remoteTimestamp);
+    });
+  });
+
+  describe('_createSyncSession', function() {
+    // _createSyncSession calls App.Sync.init() which requires Firebase SDK.
+    // We mock Sync.init to simulate a successful connection.
+    var origInit;
+    beforeEach(function() {
+      origInit = App.Sync.init;
+      App.Sync.init = function(sessionId, asAdmin) {
+        App.state.settings.syncEnabled = true;
+        App.state.settings.syncSessionId = sessionId;
+        App.state.isAdmin = !!asAdmin;
+        App.Sync.connected = true;
+        App.Storage.save();
+        return true;
+      };
+    });
+
+    it('should reset state completely in fresh mode', function() {
+      // Add dirty data
+      var id = App.Players.add('Alice');
+      App.Players.markPresent(id);
+      App.state.matches['m1'] = { id: 'm1', status: 'finished' };
+
+      App.UI._createSyncSession('test-fresh-session', 'fresh');
+
+      assert.deepStrictEqual(App.state.players, {});
+      assert.deepStrictEqual(App.state.waitingQueue, []);
+      assert.deepStrictEqual(App.state.matches, {});
+      assert.strictEqual(App.state.settings.syncEnabled, true);
+      assert.strictEqual(App.state.settings.syncSessionId, 'test-fresh-session');
+    });
+
+    it('should keep players but reset stats in keepPlayers mode', function() {
+      var id1 = App.Players.add('Alice');
+      var id2 = App.Players.add('Bob');
+      App.Players.markPresent(id1);
+      App.Players.markPresent(id2);
+      App.state.players[id1].gamesPlayed = 5;
+      App.state.players[id1].wins = 3;
+      App.state.players[id1].pointsScored = 100;
+      App.state.players[id1].partnerHistory[id2] = 2;
+      App.state.players[id1].wishedPartners = [id2];
+      App.state.matches['m1'] = { id: 'm1', status: 'finished' };
+
+      App.UI._createSyncSession('test-keep-session', 'keepPlayers');
+
+      // Players exist but stats are reset
+      assert.ok(App.state.players[id1], 'Alice should still exist');
+      assert.ok(App.state.players[id2], 'Bob should still exist');
+      assert.strictEqual(App.state.players[id1].gamesPlayed, 0);
+      assert.strictEqual(App.state.players[id1].wins, 0);
+      assert.strictEqual(App.state.players[id1].pointsScored, 0);
+      assert.deepStrictEqual(App.state.players[id1].partnerHistory, {});
+      assert.deepStrictEqual(App.state.players[id1].wishedPartners, []);
+      assert.strictEqual(App.state.players[id1].present, false);
+
+      // Queue and matches cleared
+      assert.deepStrictEqual(App.state.waitingQueue, []);
+      assert.deepStrictEqual(App.state.matches, {});
+
+      // Sync connected
+      assert.strictEqual(App.state.settings.syncEnabled, true);
+      assert.strictEqual(App.state.settings.syncSessionId, 'test-keep-session');
+    });
+
+    it('should preserve court numbers in keepPlayers mode', function() {
+      App.Session.initCourts([1, 3, 5]);
+
+      App.UI._createSyncSession('test-courts', 'keepPlayers');
+
+      var courtNums = Object.values(App.state.courts).map(function(c) { return c.displayNumber; });
+      assert.deepStrictEqual(courtNums.sort(), [1, 3, 5]);
+    });
+
+    it('should save under sync key in localStorage', function() {
+      App.UI._createSyncSession('my-sync-id', 'fresh');
+
+      var loaded = App.Storage.load('my-sync-id');
+      assert.ok(loaded);
+      assert.strictEqual(loaded.settings.syncSessionId, 'my-sync-id');
+    });
+
+    // Restore original init after each test
+    afterEach(function() {
+      App.Sync.init = origInit;
     });
   });
 });
