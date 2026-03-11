@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Badmixton Flow</title>
   <meta name="description" content="Manage player queue and court assignments during amateur badminton 2x2 sessions. Track scores, auto-suggest teams, sync across devices.">
-  <meta name="version" content="v260311-1451">
+  <meta name="version" content="v260311-1456">
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
   <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png">
@@ -37,6 +37,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <h1>Badmixton Flow</h1>
+      <span class="lock-indicator" id="lockIndicator" hidden>&#x1F512;</span>
     </div>
     <div class="topbar-right">
       <div class="lang-switcher" id="langSwitcher">
@@ -49,7 +50,6 @@
       <button class="btn-icon" id="btnToggleMode" data-i18n-title="modeToggleTooltip">
         <span id="modeIcon">&#9881;</span>
       </button>
-      <span class="lock-indicator" id="lockIndicator" hidden>&#x1F512;</span>
       <span class="sync-indicator" id="syncIndicator" title="Sync" hidden>&#9679;</span>
     </div>
   </header>

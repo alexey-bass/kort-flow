@@ -31,7 +31,7 @@ describe('Header buttons order', function() {
     topbarButtonIds.push(m[1]);
   }
 
-  it('should have lang switcher, wake lock, fullscreen, help, mode toggle, lock indicator, sync indicator', function() {
+  it('should have lang switcher, wake lock, fullscreen, help, mode toggle, sync indicator', function() {
     assert.deepStrictEqual(topbarButtonIds, [
       'langSwitcher',
       'btnWakeLock',
@@ -39,9 +39,14 @@ describe('Header buttons order', function() {
       'btnHelp',
       'btnToggleMode',
       'modeIcon',
-      'lockIndicator',
       'syncIndicator'
     ]);
+  });
+
+  it('should have lock indicator in topbar-left', function() {
+    var topbarLeft = html.match(/<div class="topbar-left">([\s\S]*?)<\/div>/);
+    assert.ok(topbarLeft, 'topbar-left should exist');
+    assert.ok(topbarLeft[1].indexOf('lockIndicator') !== -1, 'lockIndicator should be in topbar-left');
   });
 
   it('should have wake lock button before fullscreen button', function() {

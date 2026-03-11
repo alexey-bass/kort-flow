@@ -138,7 +138,7 @@ Team split scoring (3 algorithmic options + custom):
 
 Toggle between modes with the gear icon in the header. Help button (`?`) in header shows quick instructions modal (translated) with app version in the footer.
 
-Header buttons (left to right): language switcher, wake lock (☀), fullscreen (⛶), help (?), mode toggle (⚙), lock indicator (🔒), sync indicator (●).
+Header layout (left to right): title, lock indicator (🔒) | language switcher, wake lock (☀), fullscreen (⛶), help (?), mode toggle (⚙), sync indicator (●).
 
 ### Screen Wake Lock
 - Toggle button (☀) in header keeps the tablet screen on during sessions
