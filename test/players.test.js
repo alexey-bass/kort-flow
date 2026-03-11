@@ -63,6 +63,63 @@ describe('App.Players', function() {
     });
   });
 
+  describe('removeAll', function() {
+    it('should remove all players', function() {
+      App.Players.add('Alice');
+      App.Players.add('Bob');
+      App.Players.add('Carol');
+      var removed = App.Players.removeAll();
+      assert.strictEqual(removed, 3);
+      assert.strictEqual(Object.keys(App.state.players).length, 0);
+    });
+
+    it('should not remove players on court', function() {
+      var ids = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve'].map(function(n) { return App.Players.add(n); });
+      ids.forEach(function(id) { App.Players.markPresent(id); });
+      var courtId = Object.keys(App.state.courts)[0];
+      App.Courts.startGame(courtId, [ids[0], ids[1]], [ids[2], ids[3]]);
+
+      var removed = App.Players.removeAll();
+      assert.strictEqual(removed, 1); // only Eve removed
+      assert.ok(App.state.players[ids[0]]); // on court, kept
+      assert.ok(App.state.players[ids[1]]); // on court, kept
+      assert.ok(App.state.players[ids[2]]); // on court, kept
+      assert.ok(App.state.players[ids[3]]); // on court, kept
+      assert.strictEqual(App.state.players[ids[4]], undefined); // removed
+    });
+
+    it('should remove players from queue', function() {
+      var id1 = App.Players.add('Alice');
+      var id2 = App.Players.add('Bob');
+      App.Players.markPresent(id1);
+      App.Players.markPresent(id2);
+      assert.strictEqual(App.state.waitingQueue.length, 2);
+
+      App.Players.removeAll();
+      assert.strictEqual(App.state.waitingQueue.length, 0);
+    });
+
+    it('should clean up wishes targeting removed players', function() {
+      var ids = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve'].map(function(n) { return App.Players.add(n); });
+      ids.forEach(function(id) { App.Players.markPresent(id); });
+      // Alice wishes for Eve
+      App.Players.setWish(ids[0], ids[4]);
+      // Put Alice, Bob, Carol, Dave on court
+      var courtId = Object.keys(App.state.courts)[0];
+      App.Courts.startGame(courtId, [ids[0], ids[1]], [ids[2], ids[3]]);
+
+      // removeAll removes Eve (not on court)
+      App.Players.removeAll();
+      // Alice's wish for Eve should be cleaned up
+      assert.deepStrictEqual(App.state.players[ids[0]].wishedPartners, []);
+    });
+
+    it('should return 0 when no players to remove', function() {
+      var removed = App.Players.removeAll();
+      assert.strictEqual(removed, 0);
+    });
+  });
+
   describe('markPresent', function() {
     it('should mark player as present and add to queue', function() {
       var id = App.Players.add('Alice');

@@ -244,6 +244,8 @@ App.i18n = {
       confirmCancelGame: 'Anulować grę? Gracze wrócą do kolejki.',
       confirmDeletePlayer: 'Usunąć gracza ',
       confirmDeleteSuffix: '?',
+      confirmRemoveAll: 'Usunąć wszystkich graczy, którzy nie są na korcie?',
+      removeAllPlayers: 'Usuń wszystkich',
       confirmUndoMatch: 'Cofnąć ostatni zakończony mecz?',
 
       // Day names
@@ -481,6 +483,8 @@ App.i18n = {
       confirmCancelGame: 'Cancel game? Players will return to queue.',
       confirmDeletePlayer: 'Delete player ',
       confirmDeleteSuffix: '?',
+      confirmRemoveAll: 'Remove all players who are not on court?',
+      removeAllPlayers: 'Remove all',
       confirmUndoMatch: 'Undo last finished match?',
 
       // Day names

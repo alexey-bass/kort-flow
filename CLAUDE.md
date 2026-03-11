@@ -48,7 +48,7 @@ npm run validate   # runs syntax check + tests
 - Every new feature must be covered with tests
 - README must be updated when adding features
 - All tests must pass before committing
-- When committing changes to `assets/css/styles.css`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting query string in `index.html` for the changed files
+- When committing changes to `assets/css/styles.css`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting integer in `index.html` for the changed files (use a running number: 1, 2, 3, ...)
 
 ### Testing:
 ```bash
@@ -70,7 +70,7 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.Utils`    | ID generation, date/time formatting               |
 | `App.Storage`  | localStorage read/write, JSON export/import, state migration |
 | `App.Session`  | Session create/reset, court initialization         |
-| `App.Players`  | Add/remove players, mark present/absent, wishes    |
+| `App.Players`  | Add/remove/remove-all players, mark present/absent, wishes |
 | `App.Queue`    | Waiting queue CRUD, reorder, move to end           |
 | `App.Courts`   | Start/finish/cancel games, pair stats, score tracking |
 | `App.Matches`  | Match history, filtering, undo last match          |

@@ -333,6 +333,25 @@ App.Players = {
     return true;
   },
 
+  removeAll: function() {
+    var ids = Object.keys(App.state.players);
+    var removed = 0;
+    ids.forEach(function(id) {
+      if (!App.Players.isOnCourt(id)) {
+        App.Queue.remove(id);
+        delete App.state.players[id];
+        removed++;
+      }
+    });
+    // Clean up wishes targeting removed players
+    Object.values(App.state.players).forEach(function(p) {
+      p.wishedPartners = p.wishedPartners.filter(function(wid) { return !!App.state.players[wid]; });
+      p.wishesFulfilled = p.wishesFulfilled.filter(function(wid) { return !!App.state.players[wid]; });
+    });
+    if (removed > 0) App.save();
+    return removed;
+  },
+
   markPresent: function(playerId) {
     var p = App.state.players[playerId];
     if (!p) return;
@@ -1272,6 +1291,16 @@ App.UI = {
 
     document.getElementById('btnAddPlayer').addEventListener('click', function() {
       self._addPlayerFromInput();
+    });
+
+    document.getElementById('btnRemoveAllPlayers').addEventListener('click', function() {
+      self.showConfirm(App.t('confirmRemoveAll'), function() {
+        var removed = App.Players.removeAll();
+        if (removed > 0) {
+          self.renderPlayers();
+          self.renderQueue();
+        }
+      });
     });
 
     document.getElementById('playerNameInput').addEventListener('keydown', function(e) {
