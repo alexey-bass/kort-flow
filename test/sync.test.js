@@ -270,5 +270,16 @@ describe('App.Sync', function() {
 
       assert.deepStrictEqual(App.state.waitingQueue, [id, 'new-player']);
     });
+
+    it('should preserve remote lastModified to avoid clock skew', function() {
+      var remoteTimestamp = 1000000;
+      var remote = JSON.parse(JSON.stringify(App.state));
+      remote.lastModified = remoteTimestamp;
+
+      App.Sync._merge(remote);
+
+      // Must keep the remote timestamp, not overwrite with local Date.now()
+      assert.strictEqual(App.state.lastModified, remoteTimestamp);
+    });
   });
 });

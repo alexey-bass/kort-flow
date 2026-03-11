@@ -1180,9 +1180,19 @@ App.Sync = {
   _merge: function(remote) {
     // Preserve local data that should not be overwritten
     var localIsAdmin = App.state.isAdmin;
+    var remoteModified = remote.lastModified;
     App.state = App.Storage._ensureState(remote);
     App.state.isAdmin = localIsAdmin;
-    App.Storage.save();
+    // Save to localStorage without bumping lastModified — preserve the remote
+    // timestamp so future comparisons use the sender's clock, avoiding clock
+    // skew between devices that would silently drop updates.
+    var key = App.Storage.SESSION_PREFIX + App.state.date;
+    try {
+      localStorage.setItem(key, JSON.stringify(App.state));
+    } catch (e) {
+      console.error('Merge save error:', e);
+    }
+    App.state.lastModified = remoteModified;
   },
 
   disconnect: function() {
