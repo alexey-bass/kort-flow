@@ -150,6 +150,8 @@ App.i18n = {
       playerAdded: ' dodany',
       emojiHint: 'Taka nazwa już jest. Dodaj emoji lub',
       emojiSkip: 'dodaj tak',
+      emojiToggleTooltip: 'Dodaj emoji do imienia',
+      emojiPickName: 'Wybierz emoji:',
       wishPlayWith: 'Chcę grać z...',
 
       // Queue
@@ -397,6 +399,8 @@ App.i18n = {
       playerAdded: ' added',
       emojiHint: 'Name already exists. Add emoji or',
       emojiSkip: 'add as-is',
+      emojiToggleTooltip: 'Add emoji to name',
+      emojiPickName: 'Pick an emoji:',
       wishPlayWith: 'Want to play with...',
 
       // Queue

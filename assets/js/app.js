@@ -1312,6 +1312,18 @@ App.UI = {
       }
     });
 
+    document.getElementById('btnEmojiToggle').addEventListener('click', function() {
+      var picker = document.getElementById('emojiPicker');
+      if (!picker.hidden) {
+        self._hideEmojiPicker();
+        return;
+      }
+      var input = document.getElementById('playerNameInput');
+      var name = input.value.trim();
+      if (!name) return;
+      self._showEmojiPicker(name, 'emojiPickName');
+    });
+
     // Event delegation for buttons in the list
     document.getElementById('playerList').addEventListener('click', function(e) {
       var btn = e.target.closest('[data-action]');
@@ -1373,18 +1385,20 @@ App.UI = {
     return false;
   },
 
-  _showEmojiPicker: function(name) {
+  _showEmojiPicker: function(name, hintKey) {
     var self = this;
     var picker = document.getElementById('emojiPicker');
     var hint = document.getElementById('emojiHint');
     var chips = document.getElementById('emojiChips');
 
-    hint.textContent = App.t('emojiHint');
+    hint.textContent = App.t(hintKey || 'emojiHint');
     var html = '';
     self._emojiAnimals.forEach(function(emoji) {
       html += '<button data-emoji="' + emoji + '">' + name + ' ' + emoji + '</button>';
     });
-    html += '<button class="emoji-skip" data-emoji="">' + App.t('emojiSkip') + '</button>';
+    if (hintKey === 'emojiHint') {
+      html += '<button class="emoji-skip" data-emoji="">' + App.t('emojiSkip') + '</button>';
+    }
     chips.innerHTML = html;
     picker.hidden = false;
 
