@@ -49,6 +49,7 @@ npm run validate   # runs syntax check + tests
 - README must be updated when adding features
 - All tests must pass before committing
 - When committing changes to `assets/css/styles.css`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting integer in `index.html` for the changed files (use a running number: 1, 2, 3, ...)
+- When committing, bump `App.VERSION` at the top of `assets/js/app.js` to the current date-time in format `vYYMMDD-HHMM` (e.g. `v260311-0943`)
 
 ### Testing:
 ```bash
