@@ -81,11 +81,11 @@ describe('Tab navigation order', function() {
     assert.deepStrictEqual(tabNames, [
       'board',
       'players',
-      'queue',
-      'dashboard',
-      'courts',
-      'history',
       'results',
+      'courts',
+      'queue',
+      'history',
+      'dashboard',
       'debug'
     ]);
   });

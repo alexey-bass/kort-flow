@@ -98,18 +98,17 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.UI`       | All rendering, event binding, modals, toasts       |
 | `App.DnD`      | Drag-and-drop (mouse + touch) for queue reorder    |
 
-## Tabs (10 total)
+## Tabs (8 total)
 
 | Tab       | Panel ID        | Mode        | Purpose                        |
 |-----------|-----------------|-------------|--------------------------------|
 | Board     | panel-board     | Both        | Player-facing court view       |
 | Players   | panel-players   | Both        | Add/remove, mark present       |
-| Queue     | panel-queue     | Admin only  | Queue management, reorder      |
-| Session   | panel-dashboard | Admin only  | Stats, settings, actions       |
-| Courts    | panel-courts    | Admin only  | Court management, start games  |
-| History   | panel-history   | Admin only  | Match history, filters, undo   |
 | Results   | panel-results   | Both        | Leaderboard (wins, points)     |
-| Sync      | panel-sync      | Admin only  | Firebase room create/join      |
+| Courts    | panel-courts    | Admin only  | Court management, start games  |
+| Queue     | panel-queue     | Admin only  | Queue management, reorder      |
+| History   | panel-history   | Admin only  | Match history, filters, undo   |
+| Session   | panel-dashboard | Admin only  | Stats, settings, lock, actions |
 | Debug     | panel-debug     | Admin only  | State inspector, clear storage |
 
 ## Key Concepts
