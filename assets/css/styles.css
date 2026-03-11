@@ -400,6 +400,44 @@ body.player-mode .admin-only {
   font-size: 16px;
 }
 
+.emoji-picker {
+  background: var(--gray-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.emoji-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.emoji-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.emoji-chips button {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.emoji-chips button:active {
+  background: var(--primary-light);
+}
+
+.emoji-chips button.emoji-skip {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .player-list {
   display: flex;
   flex-direction: column;

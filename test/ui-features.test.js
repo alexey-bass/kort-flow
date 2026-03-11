@@ -324,3 +324,59 @@ describe('English plural rules', function() {
     assert.strictEqual(App.tGames(21), '21 games');
   });
 });
+
+describe('Emoji name disambiguation', function() {
+  beforeEach(function() {
+    localStorage.clear();
+    App.Session.create();
+  });
+
+  describe('_hasNameDuplicate', function() {
+    it('should return false when no duplicate exists', function() {
+      App.Players.add('Alice');
+      assert.strictEqual(App.UI._hasNameDuplicate('Bob'), false);
+    });
+
+    it('should return true when exact duplicate exists', function() {
+      App.Players.add('Ola');
+      assert.strictEqual(App.UI._hasNameDuplicate('Ola'), true);
+    });
+
+    it('should be case-insensitive', function() {
+      App.Players.add('Ola');
+      assert.strictEqual(App.UI._hasNameDuplicate('ola'), true);
+      assert.strictEqual(App.UI._hasNameDuplicate('OLA'), true);
+    });
+
+    it('should return false for empty players list', function() {
+      assert.strictEqual(App.UI._hasNameDuplicate('Ola'), false);
+    });
+  });
+
+  describe('_emojiAnimals', function() {
+    it('should have at least 10 animal emojis', function() {
+      assert.ok(App.UI._emojiAnimals.length >= 10);
+    });
+
+    it('should contain only unique emojis', function() {
+      var unique = new Set(App.UI._emojiAnimals);
+      assert.strictEqual(unique.size, App.UI._emojiAnimals.length);
+    });
+  });
+
+  describe('emoji translations', function() {
+    it('should have emojiHint in both languages', function() {
+      App.i18n.currentLang = 'pl';
+      assert.ok(App.t('emojiHint').length > 0);
+      App.i18n.currentLang = 'en';
+      assert.ok(App.t('emojiHint').length > 0);
+    });
+
+    it('should have emojiSkip in both languages', function() {
+      App.i18n.currentLang = 'pl';
+      assert.ok(App.t('emojiSkip').length > 0);
+      App.i18n.currentLang = 'en';
+      assert.ok(App.t('emojiSkip').length > 0);
+    });
+  });
+});

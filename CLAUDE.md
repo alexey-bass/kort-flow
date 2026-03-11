@@ -106,6 +106,9 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 
 ## Key Concepts
 
+### Emoji Name Disambiguation
+When adding a player whose name already exists (case-insensitive), an emoji picker appears below the input with animal emojis (🐶🐱🐰🦊🐼🐸...). Tapping one adds the player as e.g. "Ola 🐶". A "skip" option allows adding the duplicate name as-is. Hidden when not needed — no distraction for normal flow.
+
 ### Living Queue
 Players arrive and get a sequential number (#1, #2, ...). New players (0 games played) are inserted ahead of players who have already played, so latecomers get to play sooner. After a game finishes, all 4 players go to the **end** of the queue. Queue position is the primary factor for next game selection.
 

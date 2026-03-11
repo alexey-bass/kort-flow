@@ -155,3 +155,20 @@ describe('Wake Lock feature', function() {
     assert.ok(html.match(/id="btnWakeLock"[^>]*hidden/), 'button should be hidden by default');
   });
 });
+
+describe('Emoji picker in Players panel', function() {
+  it('should have emoji picker element hidden by default', function() {
+    assert.ok(html.match(/id="emojiPicker"[^>]*hidden/));
+  });
+
+  it('should have emoji hint and chips containers', function() {
+    assert.ok(html.includes('id="emojiHint"'));
+    assert.ok(html.includes('id="emojiChips"'));
+  });
+
+  it('should be positioned after the add-player-form', function() {
+    var formIdx = html.indexOf('add-player-form');
+    var pickerIdx = html.indexOf('id="emojiPicker"');
+    assert.ok(formIdx < pickerIdx, 'emoji picker should come after the form');
+  });
+});

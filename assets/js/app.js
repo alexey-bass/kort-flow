@@ -1362,10 +1362,50 @@ App.UI = {
     });
   },
 
-  _addPlayerFromInput: function() {
+  _emojiAnimals: ['🐶','🐱','🐰','🦊','🐼','🐸','🐯','🐨','🦁','🐮','🐷','🐵','🐔','🦄','🐢','🐬','🦋','🐝'],
+
+  _hasNameDuplicate: function(name) {
+    var lower = name.toLowerCase();
+    var players = App.state.players;
+    for (var id in players) {
+      if (players[id].name.toLowerCase() === lower) return true;
+    }
+    return false;
+  },
+
+  _showEmojiPicker: function(name) {
+    var self = this;
+    var picker = document.getElementById('emojiPicker');
+    var hint = document.getElementById('emojiHint');
+    var chips = document.getElementById('emojiChips');
+
+    hint.textContent = App.t('emojiHint');
+    var html = '';
+    self._emojiAnimals.forEach(function(emoji) {
+      html += '<button data-emoji="' + emoji + '">' + name + ' ' + emoji + '</button>';
+    });
+    html += '<button class="emoji-skip" data-emoji="">' + App.t('emojiSkip') + '</button>';
+    chips.innerHTML = html;
+    picker.hidden = false;
+
+    chips.onclick = function(e) {
+      var btn = e.target.closest('[data-emoji]');
+      if (!btn) return;
+      var emoji = btn.dataset.emoji;
+      var finalName = emoji ? name + ' ' + emoji : name;
+      self._doAddPlayer(finalName);
+      picker.hidden = true;
+      chips.onclick = null;
+    };
+  },
+
+  _hideEmojiPicker: function() {
+    var picker = document.getElementById('emojiPicker');
+    picker.hidden = true;
+  },
+
+  _doAddPlayer: function(name) {
     var input = document.getElementById('playerNameInput');
-    var name = input.value.trim();
-    if (!name) return;
     var id = App.Players.add(name);
     if (id) {
       App.Analytics.track('player_add', { player_count: Object.keys(App.state.players).length });
@@ -1374,6 +1414,20 @@ App.UI = {
       this.renderPlayers();
       App.UI.showToast(name + App.t('playerAdded'));
     }
+  },
+
+  _addPlayerFromInput: function() {
+    var input = document.getElementById('playerNameInput');
+    var name = input.value.trim();
+    if (!name) return;
+
+    if (this._hasNameDuplicate(name)) {
+      this._showEmojiPicker(name);
+      return;
+    }
+
+    this._hideEmojiPicker();
+    this._doAddPlayer(name);
   },
 
   renderPlayers: function() {

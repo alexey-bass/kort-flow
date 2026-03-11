@@ -148,6 +148,8 @@ App.i18n = {
       cantDeletePlaying: 'Nie można usunąć gracza podczas gry',
       playerOnCourt: 'Gracz jest na korcie',
       playerAdded: ' dodany',
+      emojiHint: 'Taka nazwa już jest. Dodaj emoji lub',
+      emojiSkip: 'dodaj tak',
       wishPlayWith: 'Chcę grać z...',
 
       // Queue
@@ -393,6 +395,8 @@ App.i18n = {
       cantDeletePlaying: 'Cannot delete player during game',
       playerOnCourt: 'Player is on court',
       playerAdded: ' added',
+      emojiHint: 'Name already exists. Add emoji or',
+      emojiSkip: 'add as-is',
       wishPlayWith: 'Want to play with...',
 
       // Queue
