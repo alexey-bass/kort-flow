@@ -1551,9 +1551,12 @@ App.UI = {
     var queueList = document.getElementById('queueList');
     queueList.innerHTML = html;
 
-    // Bind drag-and-drop and buttons
-    App.DnD.init(queueList);
-    this._bindQueueActions(queueList);
+    // Bind drag-and-drop and buttons (once — container element persists across renders)
+    if (!queueList._bound) {
+      App.DnD.init(queueList);
+      this._bindQueueActions(queueList);
+      queueList._bound = true;
+    }
     this.cacheTimerElements();
   },
 
@@ -2119,8 +2122,11 @@ App.UI = {
 
     document.getElementById('boardQueueList').innerHTML = qhtml;
 
-    // Bind board action buttons
-    this._bindBoardActions();
+    // Bind board action buttons (once — container element persists across renders)
+    if (!document.getElementById('boardCourts')._bound) {
+      this._bindBoardActions();
+      document.getElementById('boardCourts')._bound = true;
+    }
     this.cacheTimerElements();
   },
 
