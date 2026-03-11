@@ -24,6 +24,18 @@ Web app for managing player queues and court assignments during amateur badminto
 - **Analytics** — Google Analytics event tracking for user flow analysis
 - **Debug tools** — session inspector, localStorage viewer, clear data
 
+## Screenshots
+
+<p>
+  <a href="screenshots/01-board.png"><img src="screenshots/01-board.png" width="240" alt="Board"></a>
+  <a href="screenshots/02-players.png"><img src="screenshots/02-players.png" width="240" alt="Players"></a>
+  <a href="screenshots/03-results.png"><img src="screenshots/03-results.png" width="240" alt="Results"></a>
+  <a href="screenshots/04-queue.png"><img src="screenshots/04-queue.png" width="240" alt="Queue"></a>
+  <a href="screenshots/05-courts.png"><img src="screenshots/05-courts.png" width="240" alt="Courts"></a>
+  <a href="screenshots/06-session.png"><img src="screenshots/06-session.png" width="240" alt="Session"></a>
+  <a href="screenshots/07-history.png"><img src="screenshots/07-history.png" width="240" alt="History"></a>
+</p>
+
 ## Quick Start
 
 Open `index.html` in a browser. No server, no build tools, no npm required.
