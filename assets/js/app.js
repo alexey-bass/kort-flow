@@ -2370,7 +2370,7 @@ App.UI = {
       var diffClass = diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '');
       var medal = idx === 0 ? ' results-gold' : (idx === 1 ? ' results-silver' : (idx === 2 ? ' results-bronze' : ''));
 
-      html += '<tr class="' + medal + '">';
+      html += '<tr class="' + medal + ' results-row-clickable" data-player-id="' + p.id + '">';
       html += '<td class="results-rank">' + (idx + 1) + '</td>';
       html += '<td class="results-name">' + App.UI._esc(p.name) + '</td>';
       html += '<td>' + p.gamesPlayed + '</td>';
@@ -2400,7 +2400,16 @@ App.UI = {
       html += '</div></div>';
     }
 
-    document.getElementById('resultsContent').innerHTML = html;
+    var container = document.getElementById('resultsContent');
+    container.innerHTML = html;
+    container.onclick = function(e) {
+      var row = e.target.closest('tr[data-player-id]');
+      if (!row) return;
+      var playerId = row.dataset.playerId;
+      if (playerId && App.state.players[playerId]) {
+        App.UI._showPlayerStats(playerId);
+      }
+    };
   },
 
   _buildHighlights: function(players) {
@@ -3011,6 +3020,178 @@ App.UI = {
     setTimeout(function() {
       toast.remove();
     }, 3000);
+  },
+
+  // --- Player Stats ---
+  _computePlayerStats: function(playerId) {
+    var player = App.state.players[playerId];
+    if (!player) return null;
+
+    var matches = Object.values(App.state.matches).filter(function(m) {
+      return m.status === 'finished' &&
+        (m.teamA.indexOf(playerId) !== -1 || m.teamB.indexOf(playerId) !== -1);
+    });
+
+    var h2h = {};
+    var pairStats = {};
+
+    matches.forEach(function(m) {
+      var onTeamA = m.teamA.indexOf(playerId) !== -1;
+      var myTeam = onTeamA ? m.teamA : m.teamB;
+      var oppTeam = onTeamA ? m.teamB : m.teamA;
+
+      var won = null;
+      if (m.score) {
+        var parts = m.score.split('-').map(function(s) { return parseInt(s.trim()); });
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          var teamAWon = parts[0] >= parts[1];
+          won = (onTeamA && teamAWon) || (!onTeamA && !teamAWon);
+        }
+      }
+
+      var partnerId = myTeam[0] === playerId ? myTeam[1] : myTeam[0];
+      if (!pairStats[partnerId]) pairStats[partnerId] = { games: 0, wins: 0 };
+      pairStats[partnerId].games++;
+      if (won) pairStats[partnerId].wins++;
+
+      oppTeam.forEach(function(oppId) {
+        if (!h2h[oppId]) h2h[oppId] = { games: 0, wins: 0, losses: 0 };
+        h2h[oppId].games++;
+        if (won === true) h2h[oppId].wins++;
+        if (won === false) h2h[oppId].losses++;
+      });
+    });
+
+    var favoritePartner = null, maxPartnerGames = 0;
+    Object.keys(pairStats).forEach(function(pid) {
+      if (pairStats[pid].games > maxPartnerGames) {
+        maxPartnerGames = pairStats[pid].games;
+        favoritePartner = pid;
+      }
+    });
+
+    var mostCommonOpp = null, maxOppGames = 0;
+    Object.keys(h2h).forEach(function(pid) {
+      if (h2h[pid].games > maxOppGames) {
+        maxOppGames = h2h[pid].games;
+        mostCommonOpp = pid;
+      }
+    });
+
+    var bestPair = null, bestPairRate = 0;
+    Object.keys(pairStats).forEach(function(pid) {
+      var ps = pairStats[pid];
+      if (ps.games >= 2 && ps.wins > 0) {
+        var rate = ps.wins / ps.games;
+        if (rate > bestPairRate || (rate === bestPairRate && ps.games > (pairStats[bestPair] ? pairStats[bestPair].games : 0))) {
+          bestPairRate = rate;
+          bestPair = pid;
+        }
+      }
+    });
+
+    var avgWait = (player.waitCount || 0) > 0
+      ? (player.totalWaitTime || 0) / player.waitCount
+      : 0;
+
+    return {
+      player: player,
+      matches: matches,
+      favoritePartner: favoritePartner,
+      favoritePartnerGames: maxPartnerGames,
+      mostCommonOpp: mostCommonOpp,
+      mostCommonOppGames: maxOppGames,
+      bestPair: bestPair,
+      bestPairRate: bestPairRate,
+      bestPairGames: bestPair ? pairStats[bestPair].games : 0,
+      h2h: h2h,
+      pairStats: pairStats,
+      avgWait: avgWait
+    };
+  },
+
+  _showPlayerStats: function(playerId) {
+    var stats = this._computePlayerStats(playerId);
+    if (!stats) return;
+    var p = stats.player;
+    var esc = this._esc.bind(this);
+    var wins = p.wins || 0;
+    var losses = p.losses || 0;
+    var rate = p.gamesPlayed ? Math.round(100 * wins / p.gamesPlayed) : 0;
+    var diff = (p.pointsScored || 0) - (p.pointsConceded || 0);
+    var diffStr = diff > 0 ? '+' + diff : '' + diff;
+
+    var html = '<h3>' + esc(p.name) + '</h3>';
+
+    // Overview grid
+    html += '<div class="ps-section"><div class="ps-stat-grid">';
+    html += '<div class="ps-stat"><div class="ps-stat-val">' + p.gamesPlayed + '</div><div class="ps-stat-label">' + App.t('psGamesPlayed') + '</div></div>';
+    html += '<div class="ps-stat"><div class="ps-stat-val">' + wins + ' / ' + losses + '</div><div class="ps-stat-label">W / L</div></div>';
+    html += '<div class="ps-stat"><div class="ps-stat-val">' + rate + '%</div><div class="ps-stat-label">' + App.t('psWinRate') + '</div></div>';
+    html += '<div class="ps-stat"><div class="ps-stat-val">' + (p.pointsScored || 0) + ':' + (p.pointsConceded || 0) + ' (' + diffStr + ')</div><div class="ps-stat-label">' + App.t('psPoints') + '</div></div>';
+    if (stats.avgWait > 30000) {
+      html += '<div class="ps-stat"><div class="ps-stat-val">' + App.Utils.formatTime(stats.avgWait) + '</div><div class="ps-stat-label">' + App.t('psAvgWait') + '</div></div>';
+    }
+    html += '</div></div>';
+
+    // Favorite partner
+    if (stats.favoritePartner && App.state.players[stats.favoritePartner]) {
+      html += '<div class="ps-section ps-highlight">';
+      html += '<span class="ps-highlight-icon">🤝</span> ';
+      html += '<strong>' + App.t('psFavoritePartner') + ':</strong> ';
+      html += esc(App.state.players[stats.favoritePartner].name);
+      html += ' <span class="ps-subtle">(' + stats.favoritePartnerGames + ' ' + App.t('psTimesPlayed') + ')</span>';
+      html += '</div>';
+    }
+
+    // Most common opponent
+    if (stats.mostCommonOpp && App.state.players[stats.mostCommonOpp]) {
+      html += '<div class="ps-section ps-highlight">';
+      html += '<span class="ps-highlight-icon">⚔️</span> ';
+      html += '<strong>' + App.t('psMostCommonOpponent') + ':</strong> ';
+      html += esc(App.state.players[stats.mostCommonOpp].name);
+      html += ' <span class="ps-subtle">(' + stats.mostCommonOppGames + ' ' + App.t('psTimesPlayed') + ')</span>';
+      html += '</div>';
+    }
+
+    // Best pair
+    if (stats.bestPair && App.state.players[stats.bestPair]) {
+      html += '<div class="ps-section ps-highlight">';
+      html += '<span class="ps-highlight-icon">🏆</span> ';
+      html += '<strong>' + App.t('psBestPair') + ':</strong> ';
+      html += esc(App.state.players[stats.bestPair].name);
+      html += ' <span class="ps-subtle">(' + Math.round(stats.bestPairRate * 100) + '% ' + App.t('psBestPairRate') + ', ' + stats.bestPairGames + ' ' + App.t('psTimesPlayed') + ')</span>';
+      html += '</div>';
+    }
+
+    // Head-to-head table
+    var h2hKeys = Object.keys(stats.h2h).filter(function(pid) {
+      return App.state.players[pid];
+    }).sort(function(a, b) {
+      return stats.h2h[b].games - stats.h2h[a].games;
+    });
+
+    if (h2hKeys.length > 0) {
+      html += '<div class="ps-section">';
+      html += '<h4>' + App.t('psHeadToHead') + '</h4>';
+      html += '<table class="ps-h2h-table">';
+      html += '<thead><tr><th>' + App.t('psOpponent') + '</th><th>' + App.t('psPlayed') + '</th><th>' + App.t('psRecord') + '</th></tr></thead><tbody>';
+      h2hKeys.forEach(function(oppId) {
+        var opp = App.state.players[oppId];
+        var rec = stats.h2h[oppId];
+        html += '<tr>';
+        html += '<td>' + esc(opp.name) + '</td>';
+        html += '<td>' + rec.games + '</td>';
+        html += '<td><span class="results-wins">' + rec.wins + '</span>-<span class="results-losses">' + rec.losses + '</span></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+
+    html += '<div class="btn-row"><button class="btn btn-secondary" onclick="App.UI.hideModal()">' + App.t('closeBtn') + '</button></div>';
+
+    this.showModal(html);
+    App.Analytics.track('player_stats_view', { player_id: playerId });
   },
 
   // --- Utilities ---

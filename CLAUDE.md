@@ -141,6 +141,7 @@ Header buttons (left to right): language switcher, wake lock (☀), fullscreen (
 - Finish confirmation modal with optional score input (e.g. 21:15)
 - If score provided: wins/losses and points scored/conceded tracked per player
 - Results tab shows leaderboard sorted by wins → win rate → point differential
+- Click any player row to open detailed stats modal: overview, favorite partner, best pair (min 2 games, win rate), most common opponent, head-to-head W/L table
 
 ### i18n (Internationalization)
 - Two languages: Polish (default) and English
