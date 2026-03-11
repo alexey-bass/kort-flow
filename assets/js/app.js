@@ -2809,24 +2809,6 @@ App.UI = {
   renderDebug: function() {
     var s = App.state;
 
-    // Session stats
-    var playerCount = Object.keys(s.players).length;
-    var presentCount = Object.values(s.players).filter(function(p) { return p.present; }).length;
-    var queueCount = s.waitingQueue.length;
-    var courtCount = Object.keys(s.courts).length;
-    var occupiedCount = Object.values(s.courts).filter(function(c) { return c.occupied; }).length;
-    var matchCount = Object.keys(s.matches).length;
-
-    var statsHtml = '<table class="debug-table">' +
-      '<tr><td>' + App.t('debugPlayers') + '</td><td><strong>' + playerCount + '</strong></td></tr>' +
-      '<tr><td>' + App.t('debugPresent') + '</td><td><strong>' + presentCount + '</strong></td></tr>' +
-      '<tr><td>' + App.t('debugInQueue') + '</td><td><strong>' + queueCount + '</strong></td></tr>' +
-      '<tr><td>' + App.t('debugCourts') + '</td><td><strong>' + courtCount + '</strong></td></tr>' +
-      '<tr><td>' + App.t('debugOccupied') + '</td><td><strong>' + occupiedCount + '</strong></td></tr>' +
-      '<tr><td>' + App.t('debugMatches') + '</td><td><strong>' + matchCount + '</strong></td></tr>' +
-      '</table>';
-    document.getElementById('debugStats').innerHTML = statsHtml;
-
     // Sync state
     var syncHtml;
     if (App.Sync.connected) {
