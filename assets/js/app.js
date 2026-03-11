@@ -1026,7 +1026,7 @@ App.Sync = {
   ref: null,
   connected: false,
   _listener: null,
-  _pushing: false,
+  _pushCount: 0,
 
   init: function(sessionId, asAdmin) {
     // Check if Firebase SDK is loaded
@@ -1056,7 +1056,7 @@ App.Sync = {
 
     // Listen for changes
     this._listener = this.ref.on('value', function(snapshot) {
-      if (self._pushing) return; // ignore own changes
+      if (self._pushCount > 0) return; // ignore own changes
 
       var remote = snapshot.val();
       if (self._initialLoad) {
@@ -1091,13 +1091,13 @@ App.Sync = {
 
   push: function() {
     if (!this.ref || !this.connected) return;
-    this._pushing = true;
+    this._pushCount++;
     this._blink();
     var self = this;
     this.ref.set(App.state).then(function() {
-      self._pushing = false;
+      self._pushCount--;
     }).catch(function(err) {
-      self._pushing = false;
+      self._pushCount--;
       console.error('Sync push error:', err);
     });
   },
