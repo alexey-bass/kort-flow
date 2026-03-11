@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png">
   <link rel="icon" type="image/png" sizes="96x96" href="assets/img/favicon-96.png">
   <link rel="apple-touch-icon" href="assets/img/favicon-96.png">
-  <link rel="stylesheet" href="assets/css/styles.css?v=1">
+  <link rel="stylesheet" href="assets/css/styles.css?v=2">
   <script>
     var FIREBASE_CONFIG = {
       apiKey: "AIzaSyDQV3njrl8xcpaC9X9weZknzlx2zzxoD9k",
@@ -115,14 +115,24 @@
 
       <div class="section-block">
         <h3 data-i18n="actions"></h3>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btnNewSession" data-i18n="newSession"></button>
-          <button class="btn btn-secondary" id="btnResetToday" data-i18n="resetDay"></button>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="btnExport" data-i18n="exportJSON"></button>
-          <button class="btn btn-secondary" id="btnImport" data-i18n="importJSON"></button>
-          <input type="file" id="importFile" accept=".json" hidden>
+        <div class="action-list">
+          <div class="action-item">
+            <button class="btn btn-secondary" id="btnResetToday" data-i18n="resetDay"></button>
+            <small data-i18n="resetDayDesc"></small>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-primary" id="btnNewSession" data-i18n="newSession"></button>
+            <small data-i18n="newSessionDesc"></small>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-secondary" id="btnExport" data-i18n="exportJSON"></button>
+            <small data-i18n="exportDesc"></small>
+          </div>
+          <div class="action-item">
+            <button class="btn btn-secondary" id="btnImport" data-i18n="importJSON"></button>
+            <input type="file" id="importFile" accept=".json" hidden>
+            <small data-i18n="importDesc"></small>
+          </div>
         </div>
       </div>
     </section>
@@ -209,7 +219,7 @@
   <!-- Firebase SDK (loaded from CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script src="assets/js/i18n.js?v=1"></script>
+  <script src="assets/js/i18n.js?v=2"></script>
   <script src="assets/js/app.js?v=1"></script>
 </body>
 </html>

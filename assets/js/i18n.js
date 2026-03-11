@@ -118,9 +118,13 @@ App.i18n = {
       // Actions
       actions: 'Działania',
       newSession: 'Nowa sesja',
+      newSessionDesc: 'Tworzy pustą sesję. Obecne dane zostają zapisane.',
       resetDay: 'Resetuj dzień',
+      resetDayDesc: 'Zeruje statystyki, kolejkę i mecze. Gracze pozostają na liście.',
       exportJSON: 'Eksport JSON',
+      exportDesc: 'Pobiera kopię zapasową sesji jako plik JSON.',
       importJSON: 'Import JSON',
+      importDesc: 'Wczytuje sesję z pliku JSON.',
 
       // Players
       addPlayer: 'Dodaj',
@@ -357,9 +361,13 @@ App.i18n = {
       // Actions
       actions: 'Actions',
       newSession: 'New session',
+      newSessionDesc: 'Creates an empty session. Current data is saved.',
       resetDay: 'Reset day',
+      resetDayDesc: 'Resets stats, queue, and matches. Players stay on the list.',
       exportJSON: 'Export JSON',
+      exportDesc: 'Downloads a backup of the session as a JSON file.',
       importJSON: 'Import JSON',
+      importDesc: 'Loads a session from a JSON file.',
 
       // Players
       addPlayer: 'Add',
