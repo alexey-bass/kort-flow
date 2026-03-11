@@ -44,6 +44,7 @@ function setupBrowserMocks() {
   };
 
   global.document = {
+    querySelector: function() { return null; },
     querySelectorAll: function() { return []; },
     getElementById: function() { return createMockElement(); },
     createElement: function(tag) {

@@ -3,7 +3,7 @@
    Main application logic (App object defined in i18n.js)
    ============================================================ */
 
-App.VERSION = 'v260311-1830';
+App.VERSION = (document.querySelector('meta[name="version"]') || {}).content || 'dev';
 
 
 // ============================================================
@@ -2589,6 +2589,14 @@ App.UI = {
   renderDebug: function() {
     var s = App.state;
 
+    // App info
+    var isAdmin = !document.body.classList.contains('player-mode');
+    var appHtml = '<table class="debug-table">' +
+      '<tr><td>Version</td><td><strong>' + App.VERSION + '</strong></td></tr>' +
+      '<tr><td>Mode</td><td><strong>' + (isAdmin ? 'Admin' : 'Player') + '</strong></td></tr>' +
+      '</table>';
+    document.getElementById('debugAppInfo').innerHTML = appHtml;
+
     // Session stats
     var playerCount = Object.keys(s.players).length;
     var presentCount = Object.values(s.players).filter(function(p) { return p.present; }).length;
@@ -2604,10 +2612,6 @@ App.UI = {
       '<tr><td>' + App.t('debugCourts') + '</td><td><strong>' + courtCount + '</strong></td></tr>' +
       '<tr><td>' + App.t('debugOccupied') + '</td><td><strong>' + occupiedCount + '</strong></td></tr>' +
       '<tr><td>' + App.t('debugMatches') + '</td><td><strong>' + matchCount + '</strong></td></tr>' +
-      '<tr><td>App</td><td><strong>' + App.VERSION + '</strong></td></tr>' +
-      '<tr><td>Version</td><td><strong>' + (s.version || '?') + '</strong></td></tr>' +
-      '<tr><td>Date</td><td><strong>' + (s.date || '?') + '</strong></td></tr>' +
-      '<tr><td>isAdmin</td><td><strong>' + s.isAdmin + '</strong></td></tr>' +
       '</table>';
     document.getElementById('debugStats').innerHTML = statsHtml;
 
