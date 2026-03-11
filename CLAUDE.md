@@ -26,7 +26,7 @@ assets/img/favicon-*.png        — Shuttlecock favicons (16px, 96px)
 package.json                    — npm start script (python3 http.server)
 ```
 
-**Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, bottom) → `assets/js/i18n.js` → `assets/js/app.js`
+**Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, defer) → `assets/js/i18n.js` (defer) → `assets/js/app.js` (defer)
 
 ## How to Run
 

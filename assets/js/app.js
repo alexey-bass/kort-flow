@@ -1033,7 +1033,6 @@ App.Sync = {
 
     // Initialize Firebase (if not already)
     if (!firebase.apps.length) {
-      // Check config is filled in (loaded from firebase-config.js)
       if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.databaseURL) {
         App.UI.showToast(App.t('configureFirebase'));
         return false;
