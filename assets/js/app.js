@@ -173,6 +173,7 @@ App.Storage = {
     a.download = 'badminton_' + App.state.date + '.json';
     a.click();
     URL.revokeObjectURL(url);
+    App.Analytics.track('export_data');
     App.UI.showToast(App.t('exportDone'));
   },
 
@@ -185,6 +186,7 @@ App.Storage = {
           App.state = data;
           App.save();
           App.UI.renderAll();
+          App.Analytics.track('import_data');
           App.UI.showToast(App.t('importDone'));
         } else {
           App.UI.showToast(App.t('invalidFile'));
@@ -1312,6 +1314,7 @@ App.UI = {
       self.showConfirm(App.t('confirmRemoveAll'), function() {
         var removed = App.Players.removeAll();
         if (removed > 0) {
+          App.Analytics.track('player_remove_all', { removed_count: removed });
           self.renderPlayers();
           self.renderQueue();
         }
@@ -1377,6 +1380,7 @@ App.UI = {
         case 'delete':
           self.showConfirm(App.t('confirmDeletePlayer') + App.state.players[playerId].name + App.t('confirmDeleteSuffix'), function() {
             App.Players.remove(playerId);
+            App.Analytics.track('player_remove');
             App.save();
             self.renderPlayers();
             self.renderQueue();
@@ -1419,6 +1423,7 @@ App.UI = {
       if (!btn) return;
       var emoji = btn.dataset.emoji;
       var finalName = emoji ? name + ' ' + emoji : name;
+      App.Analytics.track('emoji_pick', { has_emoji: !!emoji });
       self._doAddPlayer(finalName);
       picker.hidden = true;
       chips.onclick = null;
@@ -1448,6 +1453,7 @@ App.UI = {
     if (!name) return;
 
     if (this._hasNameDuplicate(name)) {
+      App.Analytics.track('emoji_duplicate', { name: name });
       this._showEmojiPicker(name);
       return;
     }
@@ -2251,6 +2257,7 @@ App.UI = {
     document.getElementById('btnUndoLastMatch').addEventListener('click', function() {
       self.showConfirm(App.t('confirmUndoMatch'), function() {
         App.Matches.undoLast();
+        App.Analytics.track('match_undo');
       });
     });
   },
@@ -2597,6 +2604,7 @@ App.UI = {
 
     document.getElementById('btnDisconnect').addEventListener('click', function() {
       App.Sync.disconnect();
+      App.Analytics.track('sync_disconnect');
       App.UI.showToast(App.t('syncDisconnected'));
       self.renderSync();
     });
@@ -2810,6 +2818,7 @@ App.UI = {
       }
     });
     document.addEventListener('fullscreenchange', function() {
+      App.Analytics.track('fullscreen_toggle', { active: !!document.fullscreenElement });
       btn.textContent = document.fullscreenElement ? '\u2716' : '\u26F6';
     });
   },
@@ -3060,6 +3069,7 @@ App.DnD = {
 
       var targetIndex = parseInt(targetItem.dataset.index);
       App.Queue.move(self.draggedId, targetIndex);
+      App.Analytics.track('queue_reorder');
       App.UI.renderQueue();
     });
 
@@ -3153,6 +3163,7 @@ App.DnD = {
         if (targetItem && targetItem !== dragItem) {
           var targetIndex = parseInt(targetItem.dataset.index);
           App.Queue.move(self.draggedId, targetIndex);
+          App.Analytics.track('queue_reorder');
           App.UI.renderQueue();
         }
       }
