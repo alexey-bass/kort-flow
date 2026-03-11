@@ -2848,6 +2848,12 @@ App.UI = {
         html += '<li>' + steps[i] + '</li>';
       }
       html += '</ol>';
+      html += '<div class="help-icons">';
+      var icons = App.t('helpIcons');
+      for (var j = 0; j < icons.length; j++) {
+        html += '<div class="help-icon-row"><span class="help-icon-sym">' + icons[j][0] + '</span> ' + icons[j][1] + '</div>';
+      }
+      html += '</div>';
       html += '<p class="help-wish">' + App.t('helpWish') + '</p>';
       html += '<p class="help-copyright">&copy; <a href="https://github.com/alexey-bass/badmixton-flow" target="_blank" rel="noopener">Alexey Bass</a></p>';
       html += '<div class="btn-row"><button class="btn btn-secondary" id="btnCloseHelp">' + App.t('close') + '</button></div>';

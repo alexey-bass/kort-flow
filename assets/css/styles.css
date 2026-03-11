@@ -1101,6 +1101,23 @@ body.player-mode .admin-only {
 .help-steps li {
   margin-bottom: 4px;
 }
+.help-icons {
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.help-icon-row {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.help-icon-sym {
+  min-width: 36px;
+  text-align: center;
+  font-size: 16px;
+}
 .help-wish {
   margin: 12px 0;
   font-size: 13px;

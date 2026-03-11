@@ -102,6 +102,14 @@ App.i18n = {
         '<b>Zakończ grę</b> — kliknij „Zakończ", opcjonalnie podaj wynik',
         '<b>Powtórz</b> — gracze wracają do kolejki automatycznie'
       ],
+      helpIcons: [
+        ['🇵🇱 🇬🇧', 'Zmień język'],
+        ['☀', 'Nie wyłączaj ekranu'],
+        ['⛶', 'Pełny ekran'],
+        ['?', 'Pomoc (ten ekran)'],
+        ['⚙ / ☰', 'Przełącz tryb admin / gracz'],
+        ['●', 'Status synchronizacji (zielony = połączono)']
+      ],
       helpWish: 'Kliknij ❤️ przy graczu, aby wybrać z kim chce grać',
       close: 'Zamknij',
 
@@ -367,6 +375,14 @@ App.i18n = {
         '<b>Pick teams</b> — accept the suggestion or customize teams',
         '<b>Finish game</b> — tap "Finish", optionally enter the score',
         '<b>Repeat</b> — players return to queue automatically'
+      ],
+      helpIcons: [
+        ['🇵🇱 🇬🇧', 'Switch language'],
+        ['☀', 'Keep screen on'],
+        ['⛶', 'Fullscreen'],
+        ['?', 'Help (this screen)'],
+        ['⚙ / ☰', 'Toggle admin / player mode'],
+        ['●', 'Sync status (green = connected)']
       ],
       helpWish: 'Tap ❤️ next to a player to pick who they want to play with',
       close: 'Close',
