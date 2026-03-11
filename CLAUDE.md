@@ -170,8 +170,10 @@ Header layout (left to right): title, lock indicator (🔒) | language switcher,
 - CSS `body.session-locked` class disables action buttons globally; JS guards provide defense in depth
 
 ### Firebase Sync
-- Admin creates a session on Sync tab, shares the link
+- Admin creates a session on Session tab, shares the link
 - Shareable URL with `?session=` parameter for auto-join
+- Join (URL or button) checks session existence first via `ref.once('value')` — rejects if not found
+- `init()` accepts optional callback for async join result
 - Config inlined in `index.html` `<head>` (public by design for web apps)
 - Not required for local single-device use
 

@@ -100,10 +100,12 @@ When finishing a game, a confirmation modal lets you optionally enter the score 
 
 ### Multi-Device Sync
 
-1. Go to the **Sync** tab
+1. Go to the **Session** tab
 2. Click **Create session** (generates a session ID like `badminton-2026-03-10`). Use the 🎲 button to add a random salt for harder-to-guess IDs
 3. Copy the share link and send it to players
 4. Anyone opening the link auto-joins the session and sees live updates
+
+Joining via URL or the Join button requires the session to already exist — you cannot create sessions by guessing IDs.
 
 Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 

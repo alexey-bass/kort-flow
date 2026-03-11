@@ -1074,10 +1074,11 @@ App.Sync = {
   _listener: null,
   _pushCount: 0,
 
-  init: function(sessionId, asAdmin) {
+  init: function(sessionId, asAdmin, callback) {
     // Check if Firebase SDK is loaded
     if (typeof firebase === 'undefined' || !firebase.database) {
       App.UI.showToast(App.t('firebaseNotLoaded'));
+      if (callback) callback(false);
       return false;
     }
 
@@ -1085,6 +1086,7 @@ App.Sync = {
     if (!firebase.apps.length) {
       if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.databaseURL) {
         App.UI.showToast(App.t('configureFirebase'));
+        if (callback) callback(false);
         return false;
       }
       firebase.initializeApp(FIREBASE_CONFIG);
@@ -1093,6 +1095,34 @@ App.Sync = {
     this.db = firebase.database();
     this.ref = this.db.ref('sessions/' + sessionId);
 
+    var self = this;
+
+    // Non-admin: verify session exists before joining
+    if (!asAdmin) {
+      this.ref.once('value').then(function(snapshot) {
+        if (!snapshot.exists()) {
+          App.UI.showToast(App.t('sessionNotFound'));
+          self.ref = null;
+          if (callback) callback(false);
+          return;
+        }
+        self._connect(sessionId, false);
+        if (callback) callback(true);
+      }).catch(function() {
+        App.UI.showToast(App.t('sessionNotFound'));
+        self.ref = null;
+        if (callback) callback(false);
+      });
+      return true; // async — result via callback
+    }
+
+    // Admin: connect immediately (creates session on first push)
+    this._connect(sessionId, true);
+    if (callback) callback(true);
+    return true;
+  },
+
+  _connect: function(sessionId, asAdmin) {
     App.state.settings.syncEnabled = true;
     App.state.settings.syncSessionId = sessionId;
     App.state.isAdmin = !!asAdmin;
@@ -1132,7 +1162,6 @@ App.Sync = {
     }
 
     App.Storage.save(); // save locally only, don't push to Firebase
-    return true;
   },
 
   push: function() {
@@ -2725,12 +2754,13 @@ App.UI = {
         App.UI.showToast(App.t('enterSessionId'));
         return;
       }
-      var ok = App.Sync.init(sessionId, false);
-      if (ok) {
-        App.Analytics.track('sync_join', { source: 'manual' });
-        App.UI.showToast(App.t('connectedToSession') + sessionId);
-        self.renderSync();
-      }
+      App.Sync.init(sessionId, false, function(ok) {
+        if (ok) {
+          App.Analytics.track('sync_join', { source: 'manual' });
+          App.UI.showToast(App.t('connectedToSession') + sessionId);
+          self.renderSync();
+        }
+      });
     });
 
     document.getElementById('btnDisconnect').addEventListener('click', function() {
@@ -3496,8 +3526,12 @@ App.init = function() {
   var sessionParam = urlParams.get('session');
   if (sessionParam) {
     document.getElementById('sessionIdInput').value = sessionParam;
-    App.Sync.init(sessionParam, false);
-    App.Analytics.track('sync_join', { source: 'url' });
+    App.Sync.init(sessionParam, false, function(ok) {
+      if (ok) {
+        App.Analytics.track('sync_join', { source: 'url' });
+        App.UI.renderSync();
+      }
+    });
   } else if (App.state.settings.syncEnabled && App.state.settings.syncSessionId) {
     // If sync was active — show session ID (user clicks to reconnect)
     document.getElementById('sessionIdInput').value = App.state.settings.syncSessionId;

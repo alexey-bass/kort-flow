@@ -120,6 +120,134 @@ describe('App.Sync', function() {
     });
   });
 
+  describe('session existence check', function() {
+    it('should reject join when session does not exist', function(t, done) {
+      // Mock firebase
+      var origFirebase = global.firebase;
+      global.firebase = {
+        apps: [{}],
+        database: function() {
+          return {
+            ref: function() {
+              return {
+                once: function() {
+                  return {
+                    then: function(cb) {
+                      cb({ exists: function() { return false; } });
+                      return { catch: function() {} };
+                    }
+                  };
+                }
+              };
+            }
+          };
+        }
+      };
+
+      var toastMsg = null;
+      var origShowToast = App.UI.showToast;
+      App.UI.showToast = function(msg) { toastMsg = msg; };
+
+      App.Sync.init('nonexistent-session', false, function(ok) {
+        assert.strictEqual(ok, false);
+        assert.strictEqual(toastMsg, App.t('sessionNotFound'));
+        assert.strictEqual(App.Sync.ref, null);
+
+        App.UI.showToast = origShowToast;
+        global.firebase = origFirebase;
+        done();
+      });
+    });
+
+    it('should allow join when session exists', function(t, done) {
+      var origFirebase = global.firebase;
+      var onCalled = false;
+      global.firebase = {
+        apps: [{}],
+        database: function() {
+          return {
+            ref: function() {
+              return {
+                once: function() {
+                  return {
+                    then: function(cb) {
+                      cb({ exists: function() { return true; } });
+                      return { catch: function() {} };
+                    }
+                  };
+                },
+                on: function() { onCalled = true; },
+                off: function() {}
+              };
+            }
+          };
+        }
+      };
+
+      var origBlink = App.Sync._blink;
+      var origUpdateStatus = App.Sync._updateStatus;
+      App.Sync._blink = function() {};
+      App.Sync._updateStatus = function() {};
+
+      App.Sync.init('existing-session', false, function(ok) {
+        assert.strictEqual(ok, true);
+        assert.strictEqual(onCalled, true, 'should attach listener');
+        assert.strictEqual(App.Sync.connected, true);
+
+        // Cleanup
+        App.Sync.connected = false;
+        App.Sync._blink = origBlink;
+        App.Sync._updateStatus = origUpdateStatus;
+        global.firebase = origFirebase;
+        done();
+      });
+    });
+
+    it('should skip existence check for admin (create)', function() {
+      var origFirebase = global.firebase;
+      var onceCalled = false;
+      global.firebase = {
+        apps: [{}],
+        database: function() {
+          return {
+            ref: function() {
+              return {
+                once: function() { onceCalled = true; },
+                on: function() {},
+                off: function() {},
+                set: function() {
+                  return { then: function(cb) { cb(); return { catch: function() {} }; } };
+                }
+              };
+            }
+          };
+        }
+      };
+
+      var origBlink = App.Sync._blink;
+      var origUpdateStatus = App.Sync._updateStatus;
+      App.Sync._blink = function() {};
+      App.Sync._updateStatus = function() {};
+
+      App.Sync.init('new-session', true);
+      assert.strictEqual(onceCalled, false, 'should not check existence for admin');
+      assert.strictEqual(App.Sync.connected, true);
+
+      // Cleanup
+      App.Sync.connected = false;
+      App.Sync._blink = origBlink;
+      App.Sync._updateStatus = origUpdateStatus;
+      global.firebase = origFirebase;
+    });
+  });
+
+  describe('i18n keys', function() {
+    it('should have sessionNotFound in both languages', function() {
+      assert.notStrictEqual(App.i18n.translations.pl.sessionNotFound, undefined);
+      assert.notStrictEqual(App.i18n.translations.en.sessionNotFound, undefined);
+    });
+  });
+
   describe('_merge', function() {
     it('should preserve local isAdmin flag', function() {
       App.state.isAdmin = true;
