@@ -48,8 +48,8 @@ npm run validate   # runs syntax check + tests
 - Every new feature must be covered with tests
 - README must be updated when adding features
 - All tests must pass before committing
-- When committing changes to `assets/css/styles.css`, `assets/js/i18n.js`, or `assets/js/app.js`, bump the `?v=` cache-busting integer in `index.html` for the changed files (use a running number: 1, 2, 3, ...)
-- `App.VERSION` is auto-stamped by a pre-commit hook from `<meta name="version">` in `index.html` — no manual update needed
+- `App.VERSION` and `?v=` cache-busting params are auto-stamped by the pre-commit hook — no manual update needed
+- Git hooks live in `hooks/` (tracked). After cloning, run: `git config core.hooksPath hooks`
 
 ### Testing:
 ```bash

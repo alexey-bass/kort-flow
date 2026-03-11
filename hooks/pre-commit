@@ -1,0 +1,23 @@
+#!/bin/sh
+# Auto-stamp App version with current local date-time (vYYMMDD-HHMM)
+
+VERSION="v$(date +%y%m%d-%H%M)"
+sed -i '' "s/\(meta name=\"version\" content=\"\)[^\"]*/\1${VERSION}/" index.html
+
+# Auto-bump ?v= cache-busting params for changed CSS/JS files
+bump_version() {
+  file_pattern="$1"
+  if git diff --cached --name-only | grep -q "^${file_pattern}$"; then
+    current=$(grep "${file_pattern}?v=" index.html | sed 's/.*?v=\([0-9]*\).*/\1/')
+    if [ -n "$current" ]; then
+      new=$((current + 1))
+      sed -i '' "s|${file_pattern}?v=${current}|${file_pattern}?v=${new}|" index.html
+    fi
+  fi
+}
+
+bump_version "assets/css/styles.css"
+bump_version "assets/js/i18n.js"
+bump_version "assets/js/app.js"
+
+git add index.html
