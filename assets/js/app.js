@@ -1413,7 +1413,7 @@ App.UI = {
     hint.textContent = App.t(hintKey || 'emojiHint');
     var html = '';
     self._emojiAnimals.forEach(function(emoji) {
-      html += '<button data-emoji="' + emoji + '">' + name + ' ' + emoji + '</button>';
+      html += '<button data-emoji="' + emoji + '">' + emoji + '</button>';
     });
     if (hintKey === 'emojiHint') {
       html += '<button class="emoji-skip" data-emoji="">' + App.t('emojiSkip') + '</button>';
