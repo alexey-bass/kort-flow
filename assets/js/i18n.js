@@ -39,6 +39,16 @@ App.i18n = {
       courtNumbersHint: 'oddzielone przecinkami, np. 1,2,3',
       applyCourts: 'Zastosuj korty',
 
+      // Session lock
+      sessionLock: 'Blokada sesji',
+      lockSession: 'Zablokuj sesję',
+      unlockSession: 'Odblokuj sesję',
+      autoLockLabel: 'Auto-blokada o',
+      autoLockHint: 'Sesja zablokuje się automatycznie o podanej godzinie',
+      sessionLocked: 'Sesja zablokowana',
+      sessionUnlocked: 'Sesja odblokowana',
+      sessionAutoLocked: 'Sesja zablokowana automatycznie',
+
       // Sync
       syncFirebase: 'Synchronizacja Firebase',
       syncDesc: 'Synchronizuj dane między urządzeniami w czasie rzeczywistym. ID sesji to nazwa wspólnego pokoju — każdy kto je zna, może dołączyć i zobaczyć dane. Użyj 🎲 aby dodać losowy kod i utrudnić zgadnięcie ID.',
@@ -108,7 +118,8 @@ App.i18n = {
         ['⛶', 'Pełny ekran'],
         ['?', 'Pomoc (ten ekran)'],
         ['⚙ / ☰', 'Przełącz tryb admin / gracz'],
-        ['●', 'Status synchronizacji (zielony = połączono)']
+        ['●', 'Status synchronizacji (zielony = połączono)'],
+        ['🔒', 'Blokada sesji — wyłącza wszystkie akcje']
       ],
       helpWish: 'Kliknij ❤️ przy graczu, aby wybrać z kim chce grać',
       close: 'Zamknij',
@@ -313,6 +324,16 @@ App.i18n = {
       courtNumbersHint: 'comma-separated, e.g. 1,2,3',
       applyCourts: 'Apply courts',
 
+      // Session lock
+      sessionLock: 'Session lock',
+      lockSession: 'Lock session',
+      unlockSession: 'Unlock session',
+      autoLockLabel: 'Auto-lock at',
+      autoLockHint: 'Session will lock automatically at the specified time',
+      sessionLocked: 'Session locked',
+      sessionUnlocked: 'Session unlocked',
+      sessionAutoLocked: 'Session auto-locked',
+
       // Sync
       syncFirebase: 'Firebase Sync',
       syncDesc: 'Sync data between devices in real time. The session ID is the name of a shared room — anyone who knows it can join and see the data. Use 🎲 to add a random code and make the ID harder to guess.',
@@ -382,7 +403,8 @@ App.i18n = {
         ['⛶', 'Fullscreen'],
         ['?', 'Help (this screen)'],
         ['⚙ / ☰', 'Toggle admin / player mode'],
-        ['●', 'Sync status (green = connected)']
+        ['●', 'Sync status (green = connected)'],
+        ['🔒', 'Session lock — disables all actions']
       ],
       helpWish: 'Tap ❤️ next to a player to pick who they want to play with',
       close: 'Close',

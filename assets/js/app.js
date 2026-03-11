@@ -115,6 +115,8 @@ App.Storage = {
     if (!state.settings || typeof state.settings !== 'object') {
       state.settings = { courtNumbers: [1,2,3,4], syncEnabled: false, syncSessionId: null };
     }
+    if (state.settings.locked === undefined) state.settings.locked = false;
+    if (state.settings.autoLockTime === undefined) state.settings.autoLockTime = null;
     if (!state.nextPlayerNumber) state.nextPlayerNumber = 1;
     if (!state.date) state.date = App.Utils.getISODate(new Date());
     if (state.isAdmin === undefined) state.isAdmin = true;
@@ -218,7 +220,9 @@ App.Session = {
       settings: {
         courtNumbers: [1, 2, 3, 4],
         syncEnabled: false,
-        syncSessionId: null
+        syncSessionId: null,
+        locked: false,
+        autoLockTime: null
       },
       nextPlayerNumber: 1,
       lastModified: Date.now(),
@@ -279,6 +283,48 @@ App.Session = {
     });
     App.state.courts = newCourts;
     App.save();
+  }
+};
+
+// ============================================================
+// LOCK — Session lock/unlock, auto-lock timer
+// ============================================================
+App.Lock = {
+  isLocked: function() {
+    return App.state && App.state.settings.locked === true;
+  },
+
+  lock: function() {
+    App.state.settings.locked = true;
+    App.save();
+    App.UI.applyLockState();
+    App.UI.showToast(App.t('sessionLocked'));
+    App.Analytics.track('session_lock');
+  },
+
+  unlock: function() {
+    App.state.settings.locked = false;
+    App.save();
+    App.UI.applyLockState();
+    App.UI.showToast(App.t('sessionUnlocked'));
+    App.Analytics.track('session_unlock');
+  },
+
+  checkAutoLock: function() {
+    if (!App.state || App.state.settings.locked) return;
+    var autoTime = App.state.settings.autoLockTime;
+    if (!autoTime) return;
+    var parts = autoTime.split(':');
+    var lockMinutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    var now = new Date();
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (nowMinutes >= lockMinutes) {
+      App.state.settings.locked = true;
+      App.save();
+      App.UI.applyLockState();
+      App.UI.showToast(App.t('sessionAutoLocked'));
+      App.Analytics.track('session_auto_lock');
+    }
   }
 };
 
@@ -1162,6 +1208,7 @@ App.save = function() {
   if (App.state.settings.syncEnabled && App.Sync.connected) {
     App.Sync.push();
   }
+  App.Lock.checkAutoLock();
 };
 
 // ============================================================
@@ -1230,7 +1277,17 @@ App.UI = {
 
   renderAll: function() {
     this.renderCurrentTab();
+    this.applyLockState();
     this.cacheTimerElements();
+  },
+
+  applyLockState: function() {
+    var locked = App.Lock.isLocked();
+    if (document.body && document.body.classList) {
+      document.body.classList.toggle('session-locked', locked);
+    }
+    var lockIcon = document.getElementById('lockIndicator');
+    if (lockIcon) lockIcon.hidden = !locked;
   },
 
   // --- Dashboard ---
@@ -1283,6 +1340,19 @@ App.UI = {
       App.UI.renderAll();
       App.UI.showToast(App.t('courtsUpdated') + numbers.join(', '));
     });
+
+    document.getElementById('btnLockSession').addEventListener('click', function() {
+      App.Lock.lock();
+    });
+
+    document.getElementById('btnUnlockSession').addEventListener('click', function() {
+      App.Lock.unlock();
+    });
+
+    document.getElementById('autoLockTime').addEventListener('change', function() {
+      App.state.settings.autoLockTime = this.value || null;
+      App.save();
+    });
   },
 
   renderDashboard: function() {
@@ -1303,6 +1373,12 @@ App.UI = {
     // Update court numbers in input
     var courtNums = Object.values(App.state.courts).map(function(c) { return c.displayNumber; });
     document.getElementById('courtNumbers').value = courtNums.join(',');
+
+    // Update lock controls
+    var locked = App.Lock.isLocked();
+    document.getElementById('btnLockSession').hidden = locked;
+    document.getElementById('btnUnlockSession').hidden = !locked;
+    document.getElementById('autoLockTime').value = App.state.settings.autoLockTime || '';
   },
 
   // --- Players ---
@@ -1344,6 +1420,7 @@ App.UI = {
 
     // Event delegation for buttons in the list
     document.getElementById('playerList').addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       var row = btn.closest('[data-id]');
@@ -1451,6 +1528,7 @@ App.UI = {
   },
 
   _addPlayerFromInput: function() {
+    if (App.Lock.isLocked()) return;
     var input = document.getElementById('playerNameInput');
     var name = input.value.trim();
     if (!name) return;
@@ -1655,6 +1733,7 @@ App.UI = {
   _bindQueueActions: function(container) {
     var self = this;
     container.addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       var pid = btn.dataset.pid;
@@ -1680,6 +1759,7 @@ App.UI = {
     var self = this;
 
     document.getElementById('courtsGrid').addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       var card = btn.closest('[data-court-id]');
@@ -2230,6 +2310,7 @@ App.UI = {
   _bindBoardActions: function() {
     var self = this;
     document.getElementById('boardCourts').addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       var courtId = btn.dataset.court;
@@ -3220,6 +3301,7 @@ App.DnD = {
     var self = this;
 
     container.addEventListener('dragstart', function(e) {
+      if (App.Lock.isLocked()) return;
       var item = e.target.closest('.queue-item');
       if (!item) return;
       self.draggedId = item.dataset.id;
@@ -3279,6 +3361,7 @@ App.DnD = {
     var rafPending = false;
 
     container.addEventListener('touchstart', function(e) {
+      if (App.Lock.isLocked()) return;
       var handle = e.target.closest('.drag-handle');
       if (!handle) return;
       var item = handle.closest('.queue-item');

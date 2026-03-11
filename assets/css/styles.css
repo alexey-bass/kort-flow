@@ -122,6 +122,37 @@ body {
   50% { opacity: 0.2; }
 }
 
+/* --- Session locked state --- */
+body.session-locked .topbar {
+  background: #b91c1c;
+}
+
+.lock-indicator {
+  font-size: 20px;
+  line-height: 1;
+}
+
+body.session-locked .btn-primary,
+body.session-locked .btn-success,
+body.session-locked .btn-danger,
+body.session-locked .btn-warning,
+body.session-locked .queue-item {
+  pointer-events: none;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+body.session-locked #btnUnlockSession,
+body.session-locked .tab,
+body.session-locked .lang-btn,
+body.session-locked .btn-icon,
+body.session-locked .results-row-clickable,
+body.session-locked .history-filters select {
+  pointer-events: auto;
+  opacity: 1;
+  cursor: pointer;
+}
+
 /* --- Language switcher --- */
 .lang-switcher {
   display: flex;

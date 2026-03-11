@@ -31,7 +31,7 @@ describe('Header buttons order', function() {
     topbarButtonIds.push(m[1]);
   }
 
-  it('should have lang switcher, wake lock, fullscreen, help, mode toggle, sync indicator', function() {
+  it('should have lang switcher, wake lock, fullscreen, help, mode toggle, lock indicator, sync indicator', function() {
     assert.deepStrictEqual(topbarButtonIds, [
       'langSwitcher',
       'btnWakeLock',
@@ -39,6 +39,7 @@ describe('Header buttons order', function() {
       'btnHelp',
       'btnToggleMode',
       'modeIcon',
+      'lockIndicator',
       'syncIndicator'
     ]);
   });

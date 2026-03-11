@@ -93,6 +93,7 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.Courts`   | Start/finish/cancel games, pair stats, score tracking |
 | `App.Matches`  | Match history, filtering, undo last match          |
 | `App.Suggest`  | Auto-suggestion algorithm for next 4 players       |
+| `App.Lock`     | Session lock/unlock, auto-lock timer               |
 | `App.Sync`     | Firebase Realtime Database sync                    |
 | `App.UI`       | All rendering, event binding, modals, toasts       |
 | `App.DnD`      | Drag-and-drop (mouse + touch) for queue reorder    |
@@ -137,7 +138,7 @@ Team split scoring (3 algorithmic options + custom):
 
 Toggle between modes with the gear icon in the header. Help button (`?`) in header shows quick instructions modal (translated).
 
-Header buttons (left to right): language switcher, wake lock (☀), fullscreen (⛶), help (?), mode toggle (⚙), sync indicator (●).
+Header buttons (left to right): language switcher, wake lock (☀), fullscreen (⛶), help (?), mode toggle (⚙), lock indicator (🔒), sync indicator (●).
 
 ### Screen Wake Lock
 - Toggle button (☀) in header keeps the tablet screen on during sessions
@@ -159,6 +160,15 @@ Header buttons (left to right): language switcher, wake lock (☀), fullscreen (
 - Language preference saved in `localStorage` (`badminton_lang`)
 - UI mode (admin/player) saved in `localStorage` (`badminton_mode`), restored on refresh
 - Switcher in header with flag buttons
+
+### Session Lock
+- Manual lock/unlock button on Session tab — disables all mutation actions (add/remove players, start/finish games, queue reorder, drag-and-drop)
+- Optional auto-lock time picker ("Auto-lock at") — session locks automatically when the specified time is reached
+- When locked: header turns red (#b91c1c), lock icon (🔒) appears in header
+- Viewing tabs (Board, Results, History) remain fully functional
+- Admin can unlock anytime; non-admin sees red header + lock icon
+- Lock state syncs across devices via Firebase
+- CSS `body.session-locked` class disables action buttons globally; JS guards provide defense in depth
 
 ### Firebase Sync
 - Admin creates a session on Sync tab, shares the link
@@ -184,7 +194,7 @@ Session state stored in `localStorage` as `badminton_session_YYYY-MM-DD`:
   waitingQueue: [playerId, ...],
   courts: { [id]: Court },
   matches: { [id]: Match },
-  settings: { courtNumbers, syncEnabled, syncSessionId },
+  settings: { courtNumbers, syncEnabled, syncSessionId, locked, autoLockTime },
   nextPlayerNumber: 1,
   isAdmin: true
 }
