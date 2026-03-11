@@ -1842,14 +1842,18 @@ App.UI = {
     var teamAEl = area.querySelector('#customTeamA') || area.querySelector('.custom-split-team-a');
     var teamBEl = area.querySelector('#customTeamB') || area.querySelector('.custom-split-team-b');
     var benchEl = area.querySelector('#customBench') || area.querySelector('.custom-split-bench');
-    teamAEl.innerHTML = '<h5>Team A</h5>';
-    teamBEl.innerHTML = '<h5>Team B</h5>';
+    var htmlA = '<h5>Team A</h5>';
     splitObj.teamA.forEach(function(id) {
-      teamAEl.innerHTML += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+      htmlA += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
     });
+    teamAEl.innerHTML = htmlA;
+
+    var htmlB = '<h5>Team B</h5>';
     splitObj.teamB.forEach(function(id) {
-      teamBEl.innerHTML += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+      htmlB += '<span class="custom-split-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
     });
+    teamBEl.innerHTML = htmlB;
+
     if (benchEl) {
       var onTeam = splitObj.teamA.concat(splitObj.teamB);
       var bench = App.state.waitingQueue.filter(function(id) {
@@ -1860,10 +1864,11 @@ App.UI = {
           bench.push(p.id);
         }
       });
-      benchEl.innerHTML = '<h5>' + App.t('customBench') + '</h5>';
+      var htmlBench = '<h5>' + App.t('customBench') + '</h5>';
       bench.forEach(function(id) {
-        benchEl.innerHTML += '<span class="custom-split-chip bench-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
+        htmlBench += '<span class="custom-split-chip bench-chip" data-pid="' + id + '">' + App.UI._esc(App.state.players[id].name) + '</span>';
       });
+      benchEl.innerHTML = htmlBench;
       benchEl.style.display = bench.length > 0 ? '' : 'none';
     }
   },
@@ -2177,20 +2182,22 @@ App.UI = {
     var currentPlayer = playerSelect.value;
 
     // Update court options
-    courtSelect.innerHTML = '<option value="all">' + App.t('allCourts') + '</option>';
+    var courtOpts = '<option value="all">' + App.t('allCourts') + '</option>';
     Object.values(App.state.courts).forEach(function(c) {
-      courtSelect.innerHTML += '<option value="' + c.id + '"' +
+      courtOpts += '<option value="' + c.id + '"' +
         (currentCourt === c.id ? ' selected' : '') +
         '>' + App.t('court') + c.displayNumber + '</option>';
     });
+    courtSelect.innerHTML = courtOpts;
 
     // Update player options
-    playerSelect.innerHTML = '<option value="all">' + App.t('allPlayers') + '</option>';
+    var playerOpts = '<option value="all">' + App.t('allPlayers') + '</option>';
     App.Players.getSorted().forEach(function(p) {
-      playerSelect.innerHTML += '<option value="' + p.id + '"' +
+      playerOpts += '<option value="' + p.id + '"' +
         (currentPlayer === p.id ? ' selected' : '') +
         '>' + (p.number || '-') + '. ' + p.name + '</option>';
     });
+    playerSelect.innerHTML = playerOpts;
 
     var matches = App.Matches.getFiltered(courtSelect.value, playerSelect.value);
     var html = '';
