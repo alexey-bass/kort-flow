@@ -1180,25 +1180,20 @@ body.player-mode .admin-only {
 }
 .help-icons {
   margin: 14px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
 }
 .help-icon-row {
   font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 .help-icon-sym {
-  min-width: 36px;
+  min-width: 28px;
   text-align: center;
-  font-size: 16px;
-}
-.help-wish {
-  margin: 12px 0;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 15px;
 }
 .help-copyright {
   margin: 16px 0 4px;

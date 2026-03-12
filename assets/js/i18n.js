@@ -120,22 +120,21 @@ App.i18n = {
       helpTitle: 'Jak to działa?',
       helpSteps: [
         '<b>Dodaj graczy</b> — zakładka Gracze, wpisz imię',
-        '<b>Oznacz obecnych</b> — kliknij „Przyszedł" przy każdym graczu',
+        '<b>Oznacz obecnych</b> — kliknij „Przyszedł"; ❤️ = z kim chce grać',
         '<b>Rozpocznij grę</b> — na Tablicy kliknij „Zaproponuj" na wolnym korcie',
         '<b>Wybierz skład</b> — zaakceptuj propozycję lub dostosuj zespoły',
         '<b>Zakończ grę</b> — kliknij „Zakończ", opcjonalnie podaj wynik',
         '<b>Powtórz</b> — gracze wracają do kolejki automatycznie'
       ],
       helpIcons: [
-        ['🇵🇱 🇬🇧', 'Zmień język'],
-        ['☀', 'Nie wyłączaj ekranu'],
+        ['🇵🇱 🇬🇧', 'Język'],
+        ['☀', 'Ekran zawsze włączony'],
         ['⛶', 'Pełny ekran'],
-        ['?', 'Pomoc (ten ekran)'],
-        ['⚙ / ☰', 'Przełącz tryb admin / gracz'],
-        ['●', 'Status synchronizacji (zielony = połączono)'],
-        ['🔒', 'Blokada sesji — wyłącza wszystkie akcje']
+        ['?', 'Pomoc'],
+        ['⚙ / ☰', 'Admin / gracz'],
+        ['<span style="color:#4ade80">●</span>', 'Sync (zielony = OK)'],
+        ['🔒', 'Blokada sesji']
       ],
-      helpWish: 'Kliknij ❤️ przy graczu, aby wybrać z kim chce grać',
       close: 'Zamknij',
 
       // Admin login
@@ -424,22 +423,21 @@ App.i18n = {
       helpTitle: 'How does it work?',
       helpSteps: [
         '<b>Add players</b> — Players tab, enter a name',
-        '<b>Mark present</b> — tap "Arrived" for each player',
+        '<b>Mark present</b> — tap "Arrived"; ❤️ = pick who they want to play with',
         '<b>Start a game</b> — on Board, tap "Suggest" on a free court',
         '<b>Pick teams</b> — accept the suggestion or customize teams',
         '<b>Finish game</b> — tap "Finish", optionally enter the score',
         '<b>Repeat</b> — players return to queue automatically'
       ],
       helpIcons: [
-        ['🇵🇱 🇬🇧', 'Switch language'],
+        ['🇵🇱 🇬🇧', 'Language'],
         ['☀', 'Keep screen on'],
         ['⛶', 'Fullscreen'],
-        ['?', 'Help (this screen)'],
-        ['⚙ / ☰', 'Toggle admin / player mode'],
-        ['●', 'Sync status (green = connected)'],
-        ['🔒', 'Session lock — disables all actions']
+        ['?', 'Help'],
+        ['⚙ / ☰', 'Admin / player'],
+        ['<span style="color:#4ade80">●</span>', 'Sync (green = OK)'],
+        ['🔒', 'Session lock']
       ],
-      helpWish: 'Tap ❤️ next to a player to pick who they want to play with',
       close: 'Close',
 
       // Admin login

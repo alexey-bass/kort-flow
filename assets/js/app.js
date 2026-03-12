@@ -3176,8 +3176,7 @@ App.UI = {
         html += '<div class="help-icon-row"><span class="help-icon-sym">' + icons[j][0] + '</span> ' + icons[j][1] + '</div>';
       }
       html += '</div>';
-      html += '<p class="help-wish">' + App.t('helpWish') + '</p>';
-      html += '<p class="help-copyright">' + App.VERSION + ' &middot; &copy; <a href="https://github.com/alexey-bass/badmixton-flow" target="_blank" rel="noopener">Alexey Bass</a></p>';
+      html += '<p class="help-copyright">' + App.VERSION + ' &middot; &copy; <a href="https://www.linkedin.com/in/alexeybass/" target="_blank" rel="noopener">Alexey Bass</a> &middot; <a href="https://github.com/alexey-bass/badmixton-flow" target="_blank" rel="noopener">GitHub</a></p>';
       html += '<div class="btn-row"><button class="btn btn-secondary" id="btnCloseHelp">' + App.t('close') + '</button></div>';
       App.UI.showModal(html);
       document.getElementById('btnCloseHelp').addEventListener('click', function() {
