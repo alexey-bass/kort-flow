@@ -121,6 +121,12 @@ Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 - Mobile-first responsive CSS
 - Preconnect hints for faster CDN loading
 
+## Tested On
+
+- MacBook Air M3 (macOS, Chrome/Safari)
+- Samsung S24 Ultra (Android, Chrome)
+- Xiaomi Redmi Pad Pro 12.1" (HyperOS, Chrome)
+
 ## License
 
 All rights reserved. Contact the author for permission to use this software. See [LICENSE](LICENSE) for details.
