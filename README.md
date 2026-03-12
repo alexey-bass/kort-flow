@@ -8,7 +8,8 @@ Web app for managing player queues and court assignments during amateur badminto
 
 - **Player management** — add, remove, remove all, mark present/absent, multiple partner wishes, emoji disambiguation for duplicate names
 - **Living queue** — automatic arrival numbering, games played counter, live wait timer, auto-requeue after each game
-- **Smart suggestions** — algorithm picks next 4 players based on queue position, games balance, and wishes
+- **Flexible game formats** — 2v2 (default), 2v1, and 1v1 when not enough players for full doubles
+- **Smart suggestions** — algorithm picks next 2–4 players based on queue position, games balance, and wishes
 - **Court management** — 1–5 configurable courts, finish confirmation with optional score
 - **Team splitting** — minimizes pair/opponent repeats, respects wish pairings, custom swap option with bench
 - **Score tracking** — optional score input on game finish, win/loss and points per player
@@ -77,18 +78,20 @@ Players arrive and get a sequential number (#1, #2, ...). New players who haven'
 
 ### Suggestion Algorithm
 
-Picks the best 4 players by scoring each candidate:
+Picks the best 2–4 players (depending on queue size) by scoring each candidate:
 - Queue position (highest priority)
 - Games above average penalty (fairness)
 - Unfulfilled wish bonus
-- Diversity check: if 3+ of the top 4 were in the same recent match, swaps one out for a fresh player
+- Diversity check (2v2 only): if 3+ of the top 4 were in the same recent match, swaps one out for a fresh player
+
+Supports three game formats: **2v2** (4 players, 3 possible splits), **2v1** (3 players, 3 possible splits), and **1v1** (2 players, 1 split). Falls back to smaller formats when not enough players are available.
 
 Then splits them into two teams minimizing:
-- Pair repeat penalty
+- Pair repeat penalty (2-player teams only)
 - Opponent repeat penalty
 - While maximizing wish fulfillment
 
-Three algorithmic split options are shown, plus a **Custom** option where players can tap to swap teammates between teams or bring in anyone from the queue bench.
+Three algorithmic split options are shown (when applicable), plus a **Custom** option where players can tap to swap teammates between teams or bring in anyone from the queue bench.
 
 ### Score Tracking
 

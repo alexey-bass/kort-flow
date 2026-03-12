@@ -238,7 +238,7 @@ App.i18n = {
       lastMatchUndone: 'Ostatni mecz cofnięty',
 
       // Suggest
-      notEnoughPlayers: 'Za mało graczy w kolejce (min. 4, jest ',
+      notEnoughPlayers: 'Za mało graczy w kolejce (min. 2, jest ',
       notEnoughPlayersSuffix: ')',
       selectedPlayers: 'Wybrani: ',
       firstInQueue: 'Pierwsi w kolejce',
@@ -259,6 +259,7 @@ App.i18n = {
       // Player select modal
       selectPlayersFor: 'Wybór graczy — kort ',
       select4Players: 'Wybierz 4 graczy:',
+      select2to4Players: 'Wybierz 2–4 graczy:',
       inQueueLabel: 'w kolejce',
       splitHeading: 'Podział:',
       already4Selected: 'Już wybrano 4 graczy',
@@ -543,7 +544,7 @@ App.i18n = {
       lastMatchUndone: 'Last match undone',
 
       // Suggest
-      notEnoughPlayers: 'Not enough players in queue (need 4, have ',
+      notEnoughPlayers: 'Not enough players in queue (need 2, have ',
       notEnoughPlayersSuffix: ')',
       selectedPlayers: 'Selected: ',
       firstInQueue: 'First in queue',
@@ -564,6 +565,7 @@ App.i18n = {
       // Player select modal
       selectPlayersFor: 'Select players — court ',
       select4Players: 'Select 4 players:',
+      select2to4Players: 'Select 2–4 players:',
       inQueueLabel: 'in queue',
       splitHeading: 'Split:',
       already4Selected: 'Already selected 4 players',

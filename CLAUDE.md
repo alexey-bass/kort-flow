@@ -101,7 +101,7 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.Queue`    | Waiting queue CRUD, reorder, move to end           |
 | `App.Courts`   | Start/finish/cancel games, pair stats, score tracking |
 | `App.Matches`  | Match history, filtering, undo last match          |
-| `App.Suggest`  | Auto-suggestion algorithm for next 4 players       |
+| `App.Suggest`  | Auto-suggestion algorithm for next 2-4 players     |
 | `App.Lock`     | Session lock/unlock, auto-lock timer               |
 | `App.Sync`     | Firebase Realtime Database sync                    |
 | `App.UI`       | All rendering, event binding, modals, toasts       |
@@ -126,7 +126,14 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 When adding a player whose name already exists (case-insensitive), an emoji picker appears below the input with animal emojis (🐶🐱🐰🦊🐼🐸...). Tapping one adds the player as e.g. "Ola 🐶". A "skip" option allows adding the duplicate name as-is. Hidden when not needed — no distraction for normal flow.
 
 ### Living Queue
-Players arrive and get a sequential number (#1, #2, ...). New players (0 games played) are inserted ahead of players who have already played, so latecomers get to play sooner. After a game finishes, all 4 players go to the **end** of the queue. Queue position is the primary factor for next game selection.
+Players arrive and get a sequential number (#1, #2, ...). New players (0 games played) are inserted ahead of players who have already played, so latecomers get to play sooner. After a game finishes, all players return to the **end** of the queue. Queue position is the primary factor for next game selection.
+
+### Game Formats
+- **2v2** (default) — 4 players, standard doubles
+- **2v1** — 3 players, when not enough for 2v2
+- **1v1** — 2 players, when not enough for 2v1
+
+The suggestion algorithm picks the best available format based on queue size. Teams of 1-2 players each. Partner history is only tracked for 2-player teams. All formats support score tracking, results, and undo.
 
 ### Suggestion Algorithm
 Scores each candidate by:
@@ -134,13 +141,18 @@ Scores each candidate by:
 - Games above average penalty (weight: 50 per game)
 - Unfulfilled wish bonus (-80)
 
-Post-selection diversity (`_diversifySelection`): if 3+ of the selected 4 were in the same recent match, swaps the lowest-priority overlapping player with the best available candidate not from that match. Checks last 10 finished matches, repeats until no match has 3+ overlap.
+Post-selection diversity (`_diversifySelection`, 2v2 only): if 3+ of the selected 4 were in the same recent match, swaps the lowest-priority overlapping player with the best available candidate not from that match. Checks last 10 finished matches, repeats until no match has 3+ overlap.
 
-Team split scoring (3 algorithmic options + custom):
-- Pair repeat penalty (30 per repeat)
+Team split scoring (`splitTeams`, handles 2-4 players):
+- 4 players → 3 possible 2v2 splits
+- 3 players → 3 possible 2v1 splits (each player takes a turn solo)
+- 2 players → 1 trivial 1v1 split
+
+Split scoring (algorithmic options + custom):
+- Pair repeat penalty (30 per repeat, 2-player teams only)
 - Opponent repeat penalty (15 per repeat beyond 1st)
-- Wish fulfillment bonus (-100)
-- 4th "Custom" option: tap-to-swap players between teams or with bench players from queue
+- Wish fulfillment bonus (-100, 2-player teams only)
+- Custom option: tap-to-swap players between teams or with bench players from queue
 
 ### Two UI Modes
 - **Board** (player-facing): Courts with teams + timer, queue list with games played counter and live wait timer, results. One-tap "Finish" with score input.
@@ -148,7 +160,7 @@ Team split scoring (3 algorithmic options + custom):
 
 Toggle between modes with the gear icon in the header. Help button (`?`) in header shows quick instructions modal (translated) with app version in the footer.
 
-Header layout (left to right): title, lock indicator (🔒) | language switcher, wake lock (☀), fullscreen (⛶), help (?), mode toggle (⚙), sync indicator (●).
+Header layout (left to right): title, lock indicator (🔒) | language switcher, wake lock (☀), fullscreen (⛶), zoom (1x), help (?), mode toggle (⚙), sync indicator (●).
 
 ### Screen Wake Lock
 - Toggle button (☀) in header keeps the tablet screen on during sessions
@@ -224,4 +236,4 @@ Session state stored in `localStorage` as `bs_YYYY-MM-DD` (local) or `bs_<syncSe
 
 **Court:** `{ id, displayNumber, active, occupied, currentMatch, gameStartTime }`
 
-**Match:** `{ id, startTime, endTime, courtId, teamA: [id,id], teamB: [id,id], score, status }`
+**Match:** `{ id, startTime, endTime, courtId, teamA: [id, ...], teamB: [id, ...], score, status }` — teams have 1-2 players each (supports 1v1, 2v1, 2v2)

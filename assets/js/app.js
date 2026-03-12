@@ -595,10 +595,11 @@ App.Courts = {
       return null;
     }
 
-    // Check all 4 players are unique
+    // Validate team sizes (1-2 per team, 2-4 total, all unique)
     var allPlayers = teamA.concat(teamB);
     var unique = new Set(allPlayers);
-    if (unique.size !== 4) {
+    if (teamA.length < 1 || teamA.length > 2 || teamB.length < 1 || teamB.length > 2) return null;
+    if (unique.size !== allPlayers.length || allPlayers.length < 2) {
       App.UI.showToast(App.t('playersDuplicate'));
       return null;
     }
@@ -700,8 +701,9 @@ App.Courts = {
     }
 
     // Update partner and opponent history
-    this._updatePairStats(match.teamA[0], match.teamA[1], 'partner');
-    this._updatePairStats(match.teamB[0], match.teamB[1], 'partner');
+    [match.teamA, match.teamB].forEach(function(team) {
+      if (team.length === 2) App.Courts._updatePairStats(team[0], team[1], 'partner');
+    });
     match.teamA.forEach(function(pa) {
       match.teamB.forEach(function(pb) {
         App.Courts._updatePairStats(pa, pb, 'opponent');
@@ -833,8 +835,9 @@ App.Matches = {
     });
 
     // Revert partner history
-    this._undoPairStats(last.teamA[0], last.teamA[1], 'partner');
-    this._undoPairStats(last.teamB[0], last.teamB[1], 'partner');
+    [last.teamA, last.teamB].forEach(function(team) {
+      if (team.length === 2) App.Matches._undoPairStats(team[0], team[1], 'partner');
+    });
     last.teamA.forEach(function(pa) {
       last.teamB.forEach(function(pb) {
         App.Matches._undoPairStats(pa, pb, 'opponent');
@@ -885,7 +888,7 @@ App.Suggest = {
       .map(function(id) { return players[id]; })
       .filter(function(p) { return p && p.present; });
 
-    if (candidates.length < 4) {
+    if (candidates.length < 2) {
       return {
         players: null,
         explanation: App.t('notEnoughPlayers') + candidates.length + App.t('notEnoughPlayersSuffix')
@@ -926,44 +929,48 @@ App.Suggest = {
     // Sort by score
     scored.sort(function(a, b) { return a.score - b.score; });
 
-    // Step 2: pick top 4, try to include wished partner
-    var selected = scored.slice(0, 4);
+    // Step 2: pick top N (4 if available, else 3, else 2)
+    var gameSize = Math.min(4, candidates.length);
+    var selected = scored.slice(0, gameSize);
 
-    for (var i = 0; i < Math.min(4, selected.length); i++) {
-      var sel = selected[i];
-      if (!Array.isArray(sel.player.wishedPartners)) continue;
-      var unfulfilled = sel.player.wishedPartners.filter(function(wid) {
-        return sel.player.wishesFulfilled.indexOf(wid) === -1;
-      });
-      for (var w = 0; w < unfulfilled.length; w++) {
-        var wishId = unfulfilled[w];
-        var alreadyIn = selected.some(function(s) { return s.player.id === wishId; });
-        if (!alreadyIn) {
-          var wishCandidate = scored.find(function(s) {
-            return s.player.id === wishId && selected.indexOf(s) === -1;
-          });
-          if (wishCandidate && wishCandidate.queueIndex < candidates.length * 0.75) {
-            selected[3] = wishCandidate;
-            selected.sort(function(a, b) { return a.score - b.score; });
-            break;
+    // Try to include wished partner (only when picking 4)
+    if (gameSize === 4) {
+      for (var i = 0; i < selected.length; i++) {
+        var sel = selected[i];
+        if (!Array.isArray(sel.player.wishedPartners)) continue;
+        var unfulfilled = sel.player.wishedPartners.filter(function(wid) {
+          return sel.player.wishesFulfilled.indexOf(wid) === -1;
+        });
+        for (var w = 0; w < unfulfilled.length; w++) {
+          var wishId = unfulfilled[w];
+          var alreadyIn = selected.some(function(s) { return s.player.id === wishId; });
+          if (!alreadyIn) {
+            var wishCandidate = scored.find(function(s) {
+              return s.player.id === wishId && selected.indexOf(s) === -1;
+            });
+            if (wishCandidate && wishCandidate.queueIndex < candidates.length * 0.75) {
+              selected[3] = wishCandidate;
+              selected.sort(function(a, b) { return a.score - b.score; });
+              break;
+            }
           }
         }
       }
+
+      // Step 2b: diversify — avoid re-grouping players from the same recent match
+      selected = this._diversifySelection(selected, scored);
     }
 
-    // Step 2b: diversify — avoid re-grouping players from the same recent match
-    selected = this._diversifySelection(selected, scored);
-
-    var fourPlayers = selected.map(function(s) { return s.player; });
+    var gamePlayers = selected.map(function(s) { return s.player; });
 
     // Step 3: best team split
-    var split = this.splitTeams(fourPlayers);
+    var split = this.splitTeams(gamePlayers);
 
     // Step 4: explanation
-    var explanation = this._buildExplanation(selected, split, fourPlayers);
+    var explanation = this._buildExplanation(selected, split, gamePlayers);
 
     return {
-      players: fourPlayers.map(function(p) { return p.id; }),
+      players: gamePlayers.map(function(p) { return p.id; }),
       teamA: split.teamA,
       teamB: split.teamB,
       explanation: explanation,
@@ -971,25 +978,40 @@ App.Suggest = {
     };
   },
 
-  // Split 4 players into 2 teams, choosing the best option
-  splitTeams: function(fourPlayers) {
-    var ids = fourPlayers.map(function(p) { return p.id; });
-    var a = ids[0], b = ids[1], c = ids[2], d = ids[3];
+  // Split 2-4 players into 2 teams, choosing the best option
+  splitTeams: function(gamePlayers) {
+    var ids = gamePlayers.map(function(p) { return p.id; });
+    var splits;
 
-    // 3 possible splits
-    var splits = [
-      { teamA: [a, b], teamB: [c, d] },
-      { teamA: [a, c], teamB: [b, d] },
-      { teamA: [a, d], teamB: [b, c] }
-    ];
+    if (ids.length === 4) {
+      // 2v2: 3 possible splits
+      splits = [
+        { teamA: [ids[0], ids[1]], teamB: [ids[2], ids[3]] },
+        { teamA: [ids[0], ids[2]], teamB: [ids[1], ids[3]] },
+        { teamA: [ids[0], ids[3]], teamB: [ids[1], ids[2]] }
+      ];
+    } else if (ids.length === 3) {
+      // 2v1: 3 possible splits (each player takes a turn solo)
+      splits = [
+        { teamA: [ids[0], ids[1]], teamB: [ids[2]] },
+        { teamA: [ids[0], ids[2]], teamB: [ids[1]] },
+        { teamA: [ids[1], ids[2]], teamB: [ids[0]] }
+      ];
+    } else {
+      // 1v1: only 1 split
+      splits = [
+        { teamA: [ids[0]], teamB: [ids[1]] }
+      ];
+    }
 
     var self = this;
     var scoredSplits = splits.map(function(split) {
       var penalty = 0;
       var reasons = [];
 
-      // Penalty for pair repeats
+      // Penalty for pair repeats (only for 2-player teams)
       [split.teamA, split.teamB].forEach(function(team) {
+        if (team.length < 2) return;
         var count = self._pairCount(team[0], team[1]);
         if (count > 0) {
           penalty += count * 30;
@@ -1009,8 +1031,9 @@ App.Suggest = {
         });
       });
 
-      // Bonus for "play together" wish
+      // Bonus for "play together" wish (only for 2-player teams)
       [split.teamA, split.teamB].forEach(function(team) {
+        if (team.length < 2) return;
         var p0 = App.state.players[team[0]];
         var p1 = App.state.players[team[1]];
         var p0Wants = Array.isArray(p0.wishedPartners) && p0.wishedPartners.indexOf(p1.id) !== -1 && p0.wishesFulfilled.indexOf(p1.id) === -1;
@@ -1110,9 +1133,9 @@ App.Suggest = {
     return selected;
   },
 
-  _buildExplanation: function(selected, split, fourPlayers) {
+  _buildExplanation: function(selected, split, gamePlayers) {
     var lines = [];
-    var names = fourPlayers.map(function(p) { return p.number + ' ' + p.name; });
+    var names = gamePlayers.map(function(p) { return p.number + ' ' + p.name; });
     lines.push(App.t('selectedPlayers') + names.join(', '));
 
     // Reason for selection
@@ -2045,8 +2068,9 @@ App.UI = {
   _renderCourtHints: function(match) {
     var hints = [];
 
-    // Check pair repeats
+    // Check pair repeats (only for 2-player teams)
     [match.teamA, match.teamB].forEach(function(team) {
+      if (team.length < 2) return;
       var count = App.Suggest._pairCount(team[0], team[1]);
       if (count > 1) {
         var n0 = App.state.players[team[0]];
@@ -2055,8 +2079,9 @@ App.UI = {
       }
     });
 
-    // Check wishes
+    // Check wishes (only for 2-player teams)
     [match.teamA, match.teamB].forEach(function(team) {
+      if (team.length < 2) return;
       var p0 = App.state.players[team[0]];
       var p1 = App.state.players[team[1]];
       if (p0 && p1) {
@@ -2305,7 +2330,7 @@ App.UI = {
     var selectedIds = [];
 
     var html = '<h2>' + App.t('selectPlayersFor') + App.state.courts[courtId].displayNumber + '</h2>';
-    html += '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">' + App.t('select4Players') + '</p>';
+    html += '<p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">' + App.t('select2to4Players') + '</p>';
     html += '<div class="player-select-grid" id="playerSelectGrid">';
 
     allPresent.forEach(function(p) {
@@ -2349,12 +2374,12 @@ App.UI = {
         item.classList.add('selected');
       }
 
-      btnStart.disabled = selectedIds.length !== 4;
+      btnStart.disabled = selectedIds.length < 2 || selectedIds.length > 4;
 
-      // Show split options when 4 selected
-      if (selectedIds.length === 4) {
-        var fourPlayers = selectedIds.map(function(id) { return App.state.players[id]; });
-        var split = App.Suggest.splitTeams(fourPlayers);
+      // Show split options when 2-4 selected
+      if (selectedIds.length >= 2 && selectedIds.length <= 4) {
+        var selPlayers = selectedIds.map(function(id) { return App.state.players[id]; });
+        var split = App.Suggest.splitTeams(selPlayers);
         chosenSplit = { teamA: split.teamA, teamB: split.teamB };
 
         var phtml = '<h4>' + App.t('splitHeading') + '</h4><div class="team-split-options">';
@@ -3398,10 +3423,12 @@ App.UI = {
         }
       }
 
-      var partnerId = myTeam[0] === playerId ? myTeam[1] : myTeam[0];
-      if (!pairStats[partnerId]) pairStats[partnerId] = { games: 0, wins: 0 };
-      pairStats[partnerId].games++;
-      if (won) pairStats[partnerId].wins++;
+      var partners = myTeam.filter(function(id) { return id !== playerId; });
+      partners.forEach(function(partnerId) {
+        if (!pairStats[partnerId]) pairStats[partnerId] = { games: 0, wins: 0 };
+        pairStats[partnerId].games++;
+        if (won) pairStats[partnerId].wins++;
+      });
 
       oppTeam.forEach(function(oppId) {
         if (!h2h[oppId]) h2h[oppId] = { games: 0, wins: 0, losses: 0 };
