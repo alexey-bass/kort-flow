@@ -225,15 +225,19 @@ finishedMatches.forEach(function(m) {
   var scoreParts = m.score ? m.score.split('-').map(Number) : [0, 0];
   var aWon = scoreParts[0] > scoreParts[1];
 
-  var kA = pairKey(m.teamA[0], m.teamA[1]);
-  if (!pairMap[kA]) pairMap[kA] = { played: 0, wins: 0 };
-  pairMap[kA].played++;
-  if (aWon) pairMap[kA].wins++;
+  if (m.teamA.length === 2) {
+    var kA = pairKey(m.teamA[0], m.teamA[1]);
+    if (!pairMap[kA]) pairMap[kA] = { played: 0, wins: 0 };
+    pairMap[kA].played++;
+    if (aWon) pairMap[kA].wins++;
+  }
 
-  var kB = pairKey(m.teamB[0], m.teamB[1]);
-  if (!pairMap[kB]) pairMap[kB] = { played: 0, wins: 0 };
-  pairMap[kB].played++;
-  if (!aWon) pairMap[kB].wins++;
+  if (m.teamB.length === 2) {
+    var kB = pairKey(m.teamB[0], m.teamB[1]);
+    if (!pairMap[kB]) pairMap[kB] = { played: 0, wins: 0 };
+    pairMap[kB].played++;
+    if (!aWon) pairMap[kB].wins++;
+  }
 });
 
 var pairs = Object.keys(pairMap).map(function(k) {
