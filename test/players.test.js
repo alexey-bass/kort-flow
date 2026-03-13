@@ -262,6 +262,18 @@ describe('App.Players', function() {
       App.Players.renumber();
       assert.strictEqual(App.state.nextPlayerNumber, 1);
     });
+
+    it('should reset absent players numbers to 0', function() {
+      var id1 = App.Players.add('Alice');
+      var id2 = App.Players.add('Bob');
+      App.Players.markPresent(id1); // #1
+      App.Players.markPresent(id2); // #2
+      App.Players.markAbsent(id1);  // Alice leaves
+      assert.strictEqual(App.state.players[id1].number, 1); // stale number
+      App.Players.renumber();
+      assert.strictEqual(App.state.players[id1].number, 0); // reset
+      assert.strictEqual(App.state.players[id2].number, 1); // renumbered
+    });
   });
 
   describe('getPresent', function() {

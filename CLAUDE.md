@@ -63,6 +63,10 @@ npm run validate   # runs syntax check + tests + lighthouse
 - Git hooks live in `hooks/` (tracked). After cloning, run: `git config core.hooksPath hooks`
 - Lighthouse scores must stay at 100 across all categories. `npm run validate` runs Lighthouse after tests.
 
+### Long Player Names:
+- Player names are truncated with CSS `text-overflow: ellipsis` in player list (`.player-name`), board queue (`.bq-name`), board court cards (`.board-team > span`), and admin courts (`.team > span`)
+- Truncation is dynamic — based on available pixel width, no character limit
+
 ### Performance (CLS prevention):
 - All visible-on-load HTML elements must have default content in the HTML to avoid layout shift when JS populates them via `i18n.apply()` or `renderBoard()`
 - Tab buttons in `<nav>` must have default Polish text (e.g. `<button data-i18n="tabBoard">Tablica</button>`)
@@ -115,7 +119,7 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.Utils`    | ID generation, date/time formatting               |
 | `App.Storage`  | localStorage read/write, JSON export/import, state migration |
 | `App.Session`  | Session create/reset, court initialization         |
-| `App.Players`  | Add/remove/remove-all players, mark present/absent, wishes |
+| `App.Players`  | Add/remove/remove-all/rename/renumber players, mark present/absent, wishes |
 | `App.Queue`    | Waiting queue CRUD, reorder, move to end           |
 | `App.Courts`   | Start/finish/cancel games, pair stats, score tracking |
 | `App.Matches`  | Match history, filtering, undo last match          |
@@ -139,6 +143,12 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | Debug     | panel-debug     | Admin only  | State inspector, clear storage |
 
 ## Key Concepts
+
+### Edit Player Name
+Pencil button (✎) on each player row opens a rename modal with text input and an emoji toggle button (🐾). Tapping an emoji appends it to the name. Rename preserves all player stats, queue position, and history — only the name field changes.
+
+### Renumber Players
+"Renumber" button (admin-only, Players tab) renumbers all present players sequentially from #1, preserving their original arrival order. Absent players lose their numbers (reset to 0) and get new ones when marked present again. Confirmation dialog warns about this. Safe to use mid-session — game logic uses player IDs, not numbers.
 
 ### Emoji Name Disambiguation
 When adding a player whose name already exists (case-insensitive), an emoji picker appears below the input with animal emojis (🐶🐱🐰🦊🐼🐸...). Tapping one adds the player as e.g. "Ola 🐶". A "skip" option allows adding the duplicate name as-is. Hidden when not needed — no distraction for normal flow.

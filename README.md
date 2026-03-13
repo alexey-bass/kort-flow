@@ -6,7 +6,7 @@ Web app for managing player queues and court assignments during amateur badminto
 
 ## Features
 
-- **Player management** — add, remove, remove all, mark present/absent, multiple partner wishes, emoji disambiguation for duplicate names
+- **Player management** — add, remove, remove all, rename (with emoji support), renumber, mark present/absent, multiple partner wishes, emoji disambiguation for duplicate names
 - **Living queue** — automatic arrival numbering, games played counter, live wait timer, auto-requeue after each game
 - **Flexible game formats** — 2v2 (default), 2v1, and 1v1 when not enough players for full doubles
 - **Smart suggestions** — algorithm picks next 2–4 players based on queue position, games balance, and wishes
@@ -124,7 +124,7 @@ Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 - Google Analytics (gtag.js)
 - Mobile-first responsive CSS
 - Preconnect hints for faster CDN loading
-- Node.js built-in test runner (`node:test`) — 277 tests, zero dependencies
+- Node.js built-in test runner (`node:test`) — 290+ tests, zero dependencies
 - Lighthouse CI — 100/100 across Performance, Accessibility, and SEO
 
 ## Simulation

@@ -316,7 +316,7 @@ App.i18n = {
       confirmRemoveAll: 'Usunąć wszystkich graczy, którzy nie są na korcie?',
       removeAllPlayers: 'Usuń wszystkich',
       renumberPlayers: 'Przenumeruj',
-      confirmRenumber: 'Przenumerować graczy od 1?',
+      confirmRenumber: 'Przenumerować obecnych graczy od 1? Gracze nieoznaczeni jako obecni stracą swoje numery i dostaną nowe po ponownym dołączeniu.',
       playersRenumbered: 'Gracze przenumerowani',
       confirmUndoMatch: 'Cofnąć ostatni zakończony mecz?',
 
@@ -627,7 +627,7 @@ App.i18n = {
       confirmRemoveAll: 'Remove all players who are not on court?',
       removeAllPlayers: 'Remove all',
       renumberPlayers: 'Renumber',
-      confirmRenumber: 'Renumber players from 1?',
+      confirmRenumber: 'Renumber present players starting from 1? Players not marked as present will lose their numbers and get new ones when they rejoin.',
       playersRenumbered: 'Players renumbered',
       confirmUndoMatch: 'Undo last finished match?',
 

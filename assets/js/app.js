@@ -487,9 +487,15 @@ App.Players = {
   },
 
   renumber: function() {
-    var present = this.getPresent().sort(function(a, b) {
+    var players = Object.values(App.state.players);
+    var present = players.filter(function(p) { return p.present; }).sort(function(a, b) {
       return a.number - b.number;
     });
+    // Reset absent players' numbers
+    players.forEach(function(p) {
+      if (!p.present) p.number = 0;
+    });
+    // Renumber present players sequentially
     var num = 1;
     present.forEach(function(p) {
       p.number = num++;
