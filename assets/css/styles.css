@@ -1731,3 +1731,45 @@ tr.results-gold .results-name { color: #b8860b; }
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ============================================================
+   Shuffle mode
+   ============================================================ */
+
+/* Court card: ready state (game assigned, waiting for players) */
+.board-court-card.ready {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+}
+
+/* Player busy on another court — pulse animation */
+.player-busy {
+  animation: pulse-fade 2s ease-in-out infinite;
+}
+@keyframes pulse-fade {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.2; }
+}
+
+/* Schedule game items (sidebar + Schedule tab) */
+.schedule-game {
+  padding: 8px 12px;
+  border-left: 3px solid var(--border);
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.schedule-game.playing { border-left-color: var(--success); background: #f0fdf4; }
+.schedule-game.ready { border-left-color: #f59e0b; background: #fffbeb; }
+.schedule-game.finished { opacity: 0.5; }
+
+/* Mode badge */
+.mode-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.mode-badge.queue { background: #dbeafe; color: var(--primary); }
+.mode-badge.shuffle { background: #fef3c7; color: #92400e; }

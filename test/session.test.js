@@ -32,7 +32,8 @@ describe('App.Session', function() {
       var keys = Object.keys(App.state).sort();
       assert.deepStrictEqual(keys, [
         'courts', 'date', 'isAdmin', 'lastModified', 'matches',
-        'name', 'nextPlayerNumber', 'players', 'settings', 'version', 'waitingQueue'
+        'mode', 'name', 'nextPlayerNumber', 'players', 'schedule',
+        'settings', 'version', 'waitingQueue'
       ]);
     });
 

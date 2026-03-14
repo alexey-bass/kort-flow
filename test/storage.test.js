@@ -91,8 +91,8 @@ describe('App.Storage', function() {
       var state = App.Storage._ensureState({ players: {} });
       var keys = Object.keys(state).sort();
       assert.deepStrictEqual(keys, [
-        'courts', 'date', 'isAdmin', 'matches', 'name',
-        'nextPlayerNumber', 'players', 'settings', 'waitingQueue'
+        'courts', 'date', 'isAdmin', 'matches', 'mode', 'name',
+        'nextPlayerNumber', 'players', 'schedule', 'settings', 'waitingQueue'
       ]);
     });
 

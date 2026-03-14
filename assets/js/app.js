@@ -129,6 +129,8 @@ App.Storage = {
     if (!state.date) state.date = App.Utils.getISODate(new Date());
     if (state.name === undefined) state.name = '';
     if (state.isAdmin === undefined) state.isAdmin = true;
+    if (!state.mode) state.mode = 'queue';
+    if (!Array.isArray(state.schedule)) state.schedule = [];
     // Ensure player fields (migration)
     Object.values(state.players).forEach(function(p) {
       if (!p.partnerHistory) p.partnerHistory = {};
@@ -214,7 +216,7 @@ App.Storage = {
 // SESSION — Session management
 // ============================================================
 App.Session = {
-  create: function(name) {
+  create: function(name, mode) {
     var today = new Date();
     var dateStr = App.Utils.getISODate(today);
 
@@ -222,10 +224,12 @@ App.Session = {
       version: 1,
       date: dateStr,
       name: name || '',
+      mode: mode || 'queue',
       players: {},
       waitingQueue: [],
       courts: {},
       matches: {},
+      schedule: [],
       settings: {
         syncEnabled: false,
         syncSessionId: null,
@@ -259,6 +263,7 @@ App.Session = {
     });
     App.state.waitingQueue = [];
     App.state.matches = {};
+    App.state.schedule = [];
     App.state.nextPlayerNumber = 1;
 
     // Reset courts
@@ -430,8 +435,10 @@ App.Players = {
     p.number = App.state.nextPlayerNumber++;
     p.queueEntryTime = Date.now();
 
-    // Add to end of queue
-    App.Queue.add(playerId);
+    // In shuffle mode: don't add to queue, player is just available
+    if (!App.Shuffle.isShuffleMode()) {
+      App.Queue.add(playerId);
+    }
     App.save();
   },
 
@@ -443,7 +450,13 @@ App.Players = {
       return;
     }
     p.present = false;
-    App.Queue.remove(playerId);
+
+    if (App.Shuffle.isShuffleMode()) {
+      // Downgrade/remove affected pending games
+      App.Shuffle.handlePlayerAbsent(playerId);
+    } else {
+      App.Queue.remove(playerId);
+    }
     App.save();
   },
 
@@ -666,6 +679,17 @@ App.Courts = {
     court.currentMatch = matchId;
     court.gameStartTime = now;
 
+    // In shuffle mode: update schedule entry
+    if (App.Shuffle.isShuffleMode()) {
+      var schEntry = App.state.schedule.find(function(e) {
+        return e.courtId === courtId && e.status === 'ready';
+      });
+      if (schEntry) {
+        schEntry.status = 'playing';
+        schEntry.matchId = matchId;
+      }
+    }
+
     App.save();
     App.UI.showToast(App.t('gameStartedOn') + court.displayNumber);
     return matchId;
@@ -740,8 +764,16 @@ App.Courts = {
     court.currentMatch = null;
     court.gameStartTime = null;
 
-    // Players go to end of queue
-    App.Queue.addMultipleToEnd(allPlayers);
+    if (App.Shuffle.isShuffleMode()) {
+      // Update schedule entry status
+      var schEntry = App.state.schedule.find(function(e) { return e.matchId === match.id; });
+      if (schEntry) schEntry.status = 'finished';
+      // Auto-assign next game to this court
+      App.Shuffle.assignNextToCourt(courtId);
+    } else {
+      // Queue mode: players go to end of queue
+      App.Queue.addMultipleToEnd(allPlayers);
+    }
 
     App.save();
     App.UI.showToast(App.t('gameFinishedOn') + court.displayNumber + App.t('gameFinishedSuffix'));
@@ -757,12 +789,22 @@ App.Courts = {
     match.status = 'cancelled';
     match.endTime = Date.now();
 
-    // Return players to front of queue
-    var allPlayers = match.teamA.concat(match.teamB);
-    allPlayers.reverse().forEach(function(pid) {
-      App.Queue.remove(pid);
-      App.state.waitingQueue.unshift(pid);
-    });
+    if (App.Shuffle.isShuffleMode()) {
+      // Revert schedule entry to pending
+      var schEntry = App.state.schedule.find(function(e) { return e.matchId === match.id; });
+      if (schEntry) {
+        schEntry.status = 'pending';
+        schEntry.courtId = null;
+        schEntry.matchId = null;
+      }
+    } else {
+      // Return players to front of queue
+      var allPlayers = match.teamA.concat(match.teamB);
+      allPlayers.reverse().forEach(function(pid) {
+        App.Queue.remove(pid);
+        App.state.waitingQueue.unshift(pid);
+      });
+    }
 
     court.occupied = false;
     court.currentMatch = null;
@@ -866,17 +908,27 @@ App.Matches = {
     });
 
     // Delete match
-    delete App.state.matches[last.id];
+    var lastMatchId = last.id;
+    delete App.state.matches[lastMatchId];
 
-    // Remove players from queue (they were added at end on finish)
-    allPlayers.forEach(function(pid) {
-      App.Queue.remove(pid);
-    });
+    if (App.Shuffle.isShuffleMode()) {
+      // Find schedule entry by matchId, revert to ready
+      var schEntry = App.state.schedule.find(function(e) { return e.matchId === lastMatchId; });
+      if (schEntry) {
+        schEntry.status = 'ready';
+        schEntry.matchId = null;
+      }
+    } else {
+      // Remove players from queue (they were added at end on finish)
+      allPlayers.forEach(function(pid) {
+        App.Queue.remove(pid);
+      });
 
-    // Return to front of queue
-    allPlayers.reverse().forEach(function(pid) {
-      App.state.waitingQueue.unshift(pid);
-    });
+      // Return to front of queue
+      allPlayers.reverse().forEach(function(pid) {
+        App.state.waitingQueue.unshift(pid);
+      });
+    }
 
     App.save();
     App.UI.renderAll();
@@ -1184,6 +1236,400 @@ App.Suggest = {
 };
 
 // ============================================================
+// SHUFFLE — Shuffle mode: batch game generation & scheduling
+// ============================================================
+App.Shuffle = {
+  isShuffleMode: function() {
+    return App.state && App.state.mode === 'shuffle';
+  },
+
+  // Generate `count` games and append to schedule
+  generate: function(count) {
+    var present = App.Players.getPresent();
+    if (present.length < 2) {
+      App.UI.showToast(App.t('noPlayersForShuffle'));
+      return 0;
+    }
+
+    var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
+
+    // Build virtual history from real stats + existing non-finished schedule entries
+    var virtualGames = {};
+    var virtualPartner = {};
+    var virtualOpponent = {};
+    present.forEach(function(p) {
+      virtualGames[p.id] = p.gamesPlayed;
+      virtualPartner[p.id] = {};
+      Object.keys(p.partnerHistory || {}).forEach(function(k) {
+        virtualPartner[p.id][k] = p.partnerHistory[k];
+      });
+      virtualOpponent[p.id] = {};
+      Object.keys(p.opponentHistory || {}).forEach(function(k) {
+        virtualOpponent[p.id][k] = p.opponentHistory[k];
+      });
+    });
+
+    // Add existing non-finished schedule entries to virtual history
+    App.state.schedule.forEach(function(entry) {
+      if (entry.status === 'finished') return;
+      var all = entry.teamA.concat(entry.teamB);
+      all.forEach(function(pid) {
+        if (virtualGames[pid] !== undefined) virtualGames[pid]++;
+      });
+      [entry.teamA, entry.teamB].forEach(function(team) {
+        if (team.length === 2) {
+          var a = team[0], b = team[1];
+          if (virtualPartner[a]) virtualPartner[a][b] = (virtualPartner[a][b] || 0) + 1;
+          if (virtualPartner[b]) virtualPartner[b][a] = (virtualPartner[b][a] || 0) + 1;
+        }
+      });
+      entry.teamA.forEach(function(pa) {
+        entry.teamB.forEach(function(pb) {
+          if (virtualOpponent[pa]) virtualOpponent[pa][pb] = (virtualOpponent[pa][pb] || 0) + 1;
+          if (virtualOpponent[pb]) virtualOpponent[pb][pa] = (virtualOpponent[pb][pa] || 0) + 1;
+        });
+      });
+    });
+
+    var generated = 0;
+    var batchUsed = {}; // track players used in current batch
+    var batchCount = 0;
+
+    for (var g = 0; g < count; g++) {
+      // Reset batch every courtCount games
+      if (batchCount >= courtCount) {
+        batchUsed = {};
+        batchCount = 0;
+      }
+
+      // Score available players
+      var available = present.filter(function(p) { return !batchUsed[p.id]; });
+      if (available.length < 2) {
+        // Not enough for this batch slot, reset batch
+        batchUsed = {};
+        batchCount = 0;
+        available = present.filter(function(p) { return true; });
+        if (available.length < 2) break;
+      }
+
+      var totalVirtual = 0;
+      present.forEach(function(p) { totalVirtual += (virtualGames[p.id] || 0); });
+      var avgVirtual = present.length > 0 ? totalVirtual / present.length : 0;
+
+      var scored = available.map(function(player) {
+        var score = 0;
+        var gDiff = (virtualGames[player.id] || 0) - avgVirtual;
+        if (gDiff > 0) score += gDiff * 50;
+
+        // Wish bonus
+        if (Array.isArray(player.wishedPartners)) {
+          player.wishedPartners.forEach(function(wishId) {
+            if (player.wishesFulfilled.indexOf(wishId) === -1) {
+              var partner = App.state.players[wishId];
+              if (partner && partner.present && !batchUsed[wishId]) {
+                score -= 80;
+              }
+            }
+          });
+        }
+
+        return { player: player, score: score };
+      });
+
+      scored.sort(function(a, b) { return a.score - b.score; });
+
+      var gameSize = Math.min(4, available.length);
+      var picked = scored.slice(0, gameSize).map(function(s) { return s.player; });
+
+      // Split teams using existing algorithm with virtual history
+      var split = this._splitWithVirtual(picked, virtualPartner, virtualOpponent);
+
+      // Create schedule entry
+      var entry = {
+        id: App.Utils.generateId('sg'),
+        teamA: split.teamA,
+        teamB: split.teamB,
+        status: 'pending',
+        courtId: null,
+        matchId: null
+      };
+      App.state.schedule.push(entry);
+      generated++;
+
+      // Update virtual history for picked players
+      var allPicked = split.teamA.concat(split.teamB);
+      allPicked.forEach(function(pid) {
+        if (virtualGames[pid] !== undefined) virtualGames[pid]++;
+        batchUsed[pid] = true;
+      });
+      [split.teamA, split.teamB].forEach(function(team) {
+        if (team.length === 2) {
+          var a = team[0], b = team[1];
+          if (virtualPartner[a]) virtualPartner[a][b] = (virtualPartner[a][b] || 0) + 1;
+          if (virtualPartner[b]) virtualPartner[b][a] = (virtualPartner[b][a] || 0) + 1;
+        }
+      });
+      split.teamA.forEach(function(pa) {
+        split.teamB.forEach(function(pb) {
+          if (virtualOpponent[pa]) virtualOpponent[pa][pb] = (virtualOpponent[pa][pb] || 0) + 1;
+          if (virtualOpponent[pb]) virtualOpponent[pb][pa] = (virtualOpponent[pb][pa] || 0) + 1;
+        });
+      });
+
+      batchCount++;
+    }
+
+    if (generated > 0) {
+      App.save();
+      App.UI.showToast(App.t('scheduleGenerated') + generated);
+    }
+    return generated;
+  },
+
+  // Split teams using virtual (accumulated) history instead of real player stats
+  _splitWithVirtual: function(gamePlayers, vPartner, vOpponent) {
+    var ids = gamePlayers.map(function(p) { return p.id; });
+    var splits;
+
+    if (ids.length === 4) {
+      splits = [
+        { teamA: [ids[0], ids[1]], teamB: [ids[2], ids[3]] },
+        { teamA: [ids[0], ids[2]], teamB: [ids[1], ids[3]] },
+        { teamA: [ids[0], ids[3]], teamB: [ids[1], ids[2]] }
+      ];
+    } else if (ids.length === 3) {
+      splits = [
+        { teamA: [ids[0], ids[1]], teamB: [ids[2]] },
+        { teamA: [ids[0], ids[2]], teamB: [ids[1]] },
+        { teamA: [ids[1], ids[2]], teamB: [ids[0]] }
+      ];
+    } else {
+      splits = [{ teamA: [ids[0]], teamB: [ids[1]] }];
+    }
+
+    var scoredSplits = splits.map(function(split) {
+      var penalty = 0;
+      [split.teamA, split.teamB].forEach(function(team) {
+        if (team.length < 2) return;
+        var count = (vPartner[team[0]] && vPartner[team[0]][team[1]]) || 0;
+        if (count > 0) penalty += count * 30;
+      });
+      split.teamA.forEach(function(pa) {
+        split.teamB.forEach(function(pb) {
+          var count = (vOpponent[pa] && vOpponent[pa][pb]) || 0;
+          if (count > 1) penalty += (count - 1) * 15;
+        });
+      });
+      // Wish bonus
+      [split.teamA, split.teamB].forEach(function(team) {
+        if (team.length < 2) return;
+        var p0 = App.state.players[team[0]];
+        var p1 = App.state.players[team[1]];
+        if (!p0 || !p1) return;
+        var p0w = Array.isArray(p0.wishedPartners) && p0.wishedPartners.indexOf(p1.id) !== -1 && p0.wishesFulfilled.indexOf(p1.id) === -1;
+        var p1w = Array.isArray(p1.wishedPartners) && p1.wishedPartners.indexOf(p0.id) !== -1 && p1.wishesFulfilled.indexOf(p0.id) === -1;
+        if (p0w || p1w) penalty -= 100;
+      });
+      return { teamA: split.teamA, teamB: split.teamB, penalty: penalty };
+    });
+
+    scoredSplits.sort(function(a, b) { return a.penalty - b.penalty; });
+    return { teamA: scoredSplits[0].teamA, teamB: scoredSplits[0].teamB };
+  },
+
+  // Generate one more batch (size = court count)
+  continueShuffle: function() {
+    var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
+    return this.generate(courtCount);
+  },
+
+  // Regenerate all pending/ready entries
+  reshuffle: function() {
+    // Remove all pending and ready entries
+    App.state.schedule = App.state.schedule.filter(function(e) {
+      return e.status !== 'pending' && e.status !== 'ready';
+    });
+    // Reset courts that had ready games
+    Object.values(App.state.courts).forEach(function(c) {
+      if (!c.occupied && c._scheduleId) {
+        delete c._scheduleId;
+      }
+    });
+    // Generate new batch
+    var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
+    return this.generate(courtCount * 2);
+  },
+
+  // Assign first pending entry to this court (status → ready)
+  assignNextToCourt: function(courtId) {
+    var court = App.state.courts[courtId];
+    if (!court || court.occupied) return null;
+
+    var pending = App.state.schedule.filter(function(e) { return e.status === 'pending'; });
+    if (pending.length === 0) return null;
+
+    var entry = pending[0];
+    entry.status = 'ready';
+    entry.courtId = courtId;
+    return entry;
+  },
+
+  // Assign pending games to all free courts
+  autoAssignAll: function() {
+    var self = this;
+    var freeCourts = Object.values(App.state.courts).filter(function(c) {
+      return c.active && !c.occupied;
+    });
+    var assigned = 0;
+    freeCourts.forEach(function(court) {
+      // Check if court already has a ready game
+      var hasReady = App.state.schedule.some(function(e) {
+        return e.courtId === court.id && (e.status === 'ready' || e.status === 'playing');
+      });
+      if (hasReady) return;
+      if (self.assignNextToCourt(court.id)) assigned++;
+    });
+    if (assigned > 0) App.save();
+    return assigned;
+  },
+
+  // Check if all players in a scheduled game are free (not on other courts)
+  arePlayersReady: function(scheduleId) {
+    var entry = App.state.schedule.find(function(e) { return e.id === scheduleId; });
+    if (!entry) return false;
+    var all = entry.teamA.concat(entry.teamB);
+    return all.every(function(pid) {
+      return !App.Players.isOnCourt(pid);
+    });
+  },
+
+  // Return pending + ready entries, in order
+  getPending: function() {
+    return App.state.schedule.filter(function(e) {
+      return e.status === 'pending' || e.status === 'ready';
+    });
+  },
+
+  // Return next N pending entries (not yet assigned to court)
+  getUpcoming: function(limit) {
+    var pending = App.state.schedule.filter(function(e) { return e.status === 'pending'; });
+    return limit ? pending.slice(0, limit) : pending;
+  },
+
+  // Move a pending game to new position among pending entries
+  reorder: function(gameId, newIndex) {
+    var entry = null;
+    var oldIdx = -1;
+    var pendingIndices = [];
+    App.state.schedule.forEach(function(e, i) {
+      if (e.status === 'pending') pendingIndices.push(i);
+      if (e.id === gameId) { entry = e; oldIdx = i; }
+    });
+    if (!entry || entry.status !== 'pending') return;
+
+    // Remove from current position
+    App.state.schedule.splice(oldIdx, 1);
+
+    // Recalculate pending positions after removal
+    pendingIndices = [];
+    App.state.schedule.forEach(function(e, i) {
+      if (e.status === 'pending') pendingIndices.push(i);
+    });
+
+    // Insert at the right position
+    var insertAt;
+    if (newIndex >= pendingIndices.length) {
+      insertAt = pendingIndices.length > 0 ? pendingIndices[pendingIndices.length - 1] + 1 : App.state.schedule.length;
+    } else {
+      insertAt = pendingIndices[newIndex] !== undefined ? pendingIndices[newIndex] : App.state.schedule.length;
+    }
+    App.state.schedule.splice(insertAt, 0, entry);
+    App.save();
+  },
+
+  // Swap a player in a pending game
+  swapPlayer: function(gameId, oldPid, newPid) {
+    var entry = App.state.schedule.find(function(e) { return e.id === gameId; });
+    if (!entry || entry.status !== 'pending') return false;
+
+    var idxA = entry.teamA.indexOf(oldPid);
+    var idxB = entry.teamB.indexOf(oldPid);
+    if (idxA !== -1) {
+      entry.teamA[idxA] = newPid;
+    } else if (idxB !== -1) {
+      entry.teamB[idxB] = newPid;
+    } else {
+      return false;
+    }
+    App.save();
+    return true;
+  },
+
+  // Remove a pending game
+  removeGame: function(gameId) {
+    var idx = App.state.schedule.findIndex(function(e) { return e.id === gameId; });
+    if (idx === -1) return false;
+    var entry = App.state.schedule[idx];
+    if (entry.status !== 'pending') return false;
+    App.state.schedule.splice(idx, 1);
+    App.save();
+    return true;
+  },
+
+  // Handle player becoming absent — downgrade or remove affected pending/ready games
+  handlePlayerAbsent: function(playerId) {
+    var toRemove = [];
+    App.state.schedule.forEach(function(entry) {
+      if (entry.status !== 'pending' && entry.status !== 'ready') return;
+      var inA = entry.teamA.indexOf(playerId);
+      var inB = entry.teamB.indexOf(playerId);
+      if (inA === -1 && inB === -1) return;
+
+      var all = entry.teamA.concat(entry.teamB);
+      var remaining = all.filter(function(pid) { return pid !== playerId; });
+
+      if (remaining.length < 2) {
+        // Not enough players — mark for removal
+        toRemove.push(entry.id);
+      } else {
+        // Downgrade: rebuild teams from remaining players
+        var players = remaining.map(function(pid) { return App.state.players[pid]; }).filter(Boolean);
+        var split = App.Suggest.splitTeams(players);
+        entry.teamA = split.teamA;
+        entry.teamB = split.teamB;
+        // If was ready, revert to pending
+        if (entry.status === 'ready') {
+          entry.status = 'pending';
+          entry.courtId = null;
+        }
+      }
+    });
+
+    toRemove.forEach(function(id) {
+      var idx = App.state.schedule.findIndex(function(e) { return e.id === id; });
+      if (idx !== -1) App.state.schedule.splice(idx, 1);
+    });
+
+    if (toRemove.length > 0 || App.state.schedule.length > 0) {
+      App.save();
+    }
+  },
+
+  // Get schedule stats
+  getStats: function() {
+    var total = App.state.schedule.length;
+    var pending = 0, ready = 0, playing = 0, finished = 0;
+    App.state.schedule.forEach(function(e) {
+      if (e.status === 'pending') pending++;
+      else if (e.status === 'ready') ready++;
+      else if (e.status === 'playing') playing++;
+      else if (e.status === 'finished') finished++;
+    });
+    return { total: total, pending: pending, ready: ready, playing: playing, finished: finished };
+  }
+};
+
+// ============================================================
 // SYNC — Firebase Realtime Database
 // ============================================================
 App.Sync = {
@@ -1436,11 +1882,21 @@ App.UI = {
 
   renderAll: function() {
     this.renderSessionName();
+    this._applyShuffleModeUI();
     this.renderCurrentTab();
     this.applyLockState();
     this._applyResultsTabVisibility();
     this._applyZoom();
     this.cacheTimerElements();
+  },
+
+  _applyShuffleModeUI: function() {
+    if (!document.querySelectorAll) return;
+    // Update tab label: Queue → Schedule when in shuffle mode
+    var queueTabs = document.querySelectorAll('.tab[data-tab="queue"]');
+    if (queueTabs && queueTabs.length > 0) {
+      queueTabs[0].textContent = App.Shuffle.isShuffleMode() ? App.t('tabSchedule') : App.t('tabQueue');
+    }
   },
 
   renderSessionName: function() {
@@ -1489,7 +1945,14 @@ App.UI = {
       var html = '<h2>' + App.t('newSession') + '</h2>';
       html += '<p style="margin-bottom:12px; color:var(--text-secondary); font-size:13px;">' + App.t('confirmNewSession') + '</p>';
       html += '<label style="font-size:13px; color:var(--text-secondary);">' + App.t('sessionNameLabel') + '</label>';
-      html += '<input type="text" id="sessionNameInput" placeholder="' + App.t('sessionNamePlaceholder') + '" style="display:block; width:100%; box-sizing:border-box; padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:16px; margin:6px 0 16px;">';
+      html += '<input type="text" id="sessionNameInput" placeholder="' + App.t('sessionNamePlaceholder') + '" style="display:block; width:100%; box-sizing:border-box; padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:16px; margin:6px 0 12px;">';
+      html += '<label style="font-size:13px; color:var(--text-secondary);">' + App.t('sessionMode') + '</label>';
+      html += '<div style="display:flex; gap:8px; margin:6px 0 16px;">';
+      html += '<label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeQueueLabel">';
+      html += '<input type="radio" name="sessionMode" value="queue" checked> <span>' + App.t('modeQueue') + '</span></label>';
+      html += '<label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeShuffleLabel">';
+      html += '<input type="radio" name="sessionMode" value="shuffle"> <span>' + App.t('modeShuffle') + '</span></label>';
+      html += '</div>';
       html += '<div class="btn-row">';
       html += '<button class="btn btn-success" id="btnNewSessionOk">' + App.t('ok') + '</button>';
       html += '<button class="btn btn-secondary" id="btnNewSessionCancel">' + App.t('cancelAction') + '</button>';
@@ -1498,11 +1961,23 @@ App.UI = {
       self.showModal(html);
       document.getElementById('sessionNameInput').focus();
 
+      // Highlight selected mode
+      var modeRadios = document.querySelectorAll('input[name="sessionMode"]');
+      modeRadios.forEach(function(r) {
+        r.addEventListener('change', function() {
+          document.getElementById('modeQueueLabel').style.borderColor = r.value === 'queue' ? 'var(--primary)' : 'var(--border)';
+          document.getElementById('modeShuffleLabel').style.borderColor = r.value === 'shuffle' ? 'var(--primary)' : 'var(--border)';
+        });
+      });
+      document.getElementById('modeQueueLabel').style.borderColor = 'var(--primary)';
+
       document.getElementById('btnNewSessionOk').addEventListener('click', function() {
         var name = document.getElementById('sessionNameInput').value.trim();
-        App.Session.create(name);
+        var modeEl = document.querySelector('input[name="sessionMode"]:checked');
+        var mode = modeEl ? modeEl.value : 'queue';
+        App.Session.create(name, mode);
         App.Session.initCourts([1, 2, 3, 4]);
-        App.Analytics.track('session_create', { court_count: 4 });
+        App.Analytics.track('session_create', { court_count: 4, mode: mode });
         App.UI.hideModal();
         App.UI.renderAll();
         App.UI.showToast(App.t('newSessionCreated'));
@@ -1635,17 +2110,25 @@ App.UI = {
   renderDashboard: function() {
     var present = App.Players.getPresent();
     var playing = present.filter(function(p) { return App.Players.isOnCourt(p.id); });
-    var waiting = App.state.waitingQueue.length;
+    var isShuffle = App.Shuffle.isShuffleMode();
     var activeCourts = Object.values(App.state.courts).filter(function(c) { return c.active; });
     var occupiedCourts = activeCourts.filter(function(c) { return c.occupied; });
     var totalGames = App.Matches.getFinished().length;
 
-    document.getElementById('statsGrid').innerHTML =
-      '<div class="stat-card"><div class="stat-value">' + present.length + '</div><div class="stat-label">' + App.t('statPresent') + '</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + playing.length + '</div><div class="stat-label">' + App.t('statPlaying') + '</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + waiting + '</div><div class="stat-label">' + App.t('statInQueue') + '</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + occupiedCourts.length + '/' + activeCourts.length + '</div><div class="stat-label">' + App.t('statCourtsOccupied') + '</div></div>' +
+    var statsHtml = '<div class="stat-card"><div class="stat-value">' + present.length + '</div><div class="stat-label">' + App.t('statPresent') + '</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + playing.length + '</div><div class="stat-label">' + App.t('statPlaying') + '</div></div>';
+
+    if (isShuffle) {
+      var schStats = App.Shuffle.getStats();
+      statsHtml += '<div class="stat-card"><div class="stat-value">' + (schStats.pending + schStats.ready) + '</div><div class="stat-label">' + App.t('statScheduled') + '</div></div>';
+    } else {
+      statsHtml += '<div class="stat-card"><div class="stat-value">' + App.state.waitingQueue.length + '</div><div class="stat-label">' + App.t('statInQueue') + '</div></div>';
+    }
+
+    statsHtml += '<div class="stat-card"><div class="stat-value">' + occupiedCourts.length + '/' + activeCourts.length + '</div><div class="stat-label">' + App.t('statCourtsOccupied') + '</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + totalGames + '</div><div class="stat-label">' + App.t('statGamesPlayed') + '</div></div>';
+
+    document.getElementById('statsGrid').innerHTML = statsHtml;
 
     // Update court numbers in input
     var courtNums = Object.values(App.state.courts).map(function(c) { return c.displayNumber; });
@@ -2058,6 +2541,11 @@ App.UI = {
 
   // --- Queue ---
   renderQueue: function() {
+    if (App.Shuffle.isShuffleMode()) {
+      this._renderScheduleTab();
+      return;
+    }
+
     var queue = App.state.waitingQueue;
     var html = '';
 
@@ -2094,6 +2582,99 @@ App.UI = {
       queueList._bound = true;
     }
     this.cacheTimerElements();
+  },
+
+  _renderScheduleTab: function() {
+    var schedule = App.state.schedule;
+    var stats = App.Shuffle.getStats();
+
+    document.getElementById('queueCount').textContent = stats.pending + stats.ready;
+
+    // Action buttons
+    var html = '<div class="btn-row" style="margin-bottom:12px;">';
+    html += '<button class="btn btn-primary btn-sm" data-action="schedule-generate">' + App.t('shuffleGenerate') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" data-action="schedule-continue">' + App.t('shuffleContinue') + '</button>';
+    html += '<button class="btn btn-warning btn-sm" data-action="schedule-reshuffle">' + App.t('shuffleReshuffle') + '</button>';
+    html += '</div>';
+
+    if (schedule.length === 0) {
+      html += '<div style="text-align:center; color:var(--text-secondary); padding:20px;">' + App.t('scheduleEmpty') + '</div>';
+    } else {
+      // Group by status
+      var gameNum = 0;
+      schedule.forEach(function(entry) {
+        gameNum++;
+        var statusClass = entry.status;
+        var teamANames = entry.teamA.map(function(pid) {
+          var p = App.state.players[pid];
+          return p ? ('#' + p.number + ' ' + App.UI._esc(p.name)) : '?';
+        }).join(' + ');
+        var teamBNames = entry.teamB.map(function(pid) {
+          var p = App.state.players[pid];
+          return p ? ('#' + p.number + ' ' + App.UI._esc(p.name)) : '?';
+        }).join(' + ');
+
+        var courtLabel = '';
+        if (entry.courtId && App.state.courts[entry.courtId]) {
+          courtLabel = ' — ' + App.t('court') + App.state.courts[entry.courtId].displayNumber;
+        }
+
+        html += '<div class="schedule-game ' + statusClass + '" data-schedule-id="' + entry.id + '">';
+        html += '<div style="display:flex; justify-content:space-between; align-items:center;">';
+        html += '<span style="font-size:12px; color:var(--text-secondary);">' + App.t('scheduleGame') + ' ' + gameNum + courtLabel + '</span>';
+        if (entry.status === 'pending') {
+          html += '<button class="btn btn-danger btn-xs" data-action="schedule-remove" data-game="' + entry.id + '">&#10005;</button>';
+        }
+        html += '</div>';
+        html += '<div style="font-size:14px; font-weight:500;">' + teamANames + ' <span style="color:var(--text-secondary)">vs</span> ' + teamBNames + '</div>';
+        html += '</div>';
+      });
+    }
+
+    var queueList = document.getElementById('queueList');
+    queueList.innerHTML = html;
+
+    // Bind schedule actions (once)
+    if (!queueList._schedBound) {
+      this._bindScheduleActions(queueList);
+      queueList._schedBound = true;
+    }
+  },
+
+  _bindScheduleActions: function(container) {
+    container.addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      switch (btn.dataset.action) {
+        case 'schedule-generate':
+          var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
+          App.Shuffle.generate(courtCount * 2);
+          App.Shuffle.autoAssignAll();
+          App.UI.renderAll();
+          break;
+        case 'schedule-continue':
+          App.Shuffle.continueShuffle();
+          App.Shuffle.autoAssignAll();
+          App.UI.renderAll();
+          break;
+        case 'schedule-reshuffle':
+          App.UI.showConfirm(App.t('confirmReshuffle'), function() {
+            App.Shuffle.reshuffle();
+            App.Shuffle.autoAssignAll();
+            App.UI.renderAll();
+          });
+          break;
+        case 'schedule-remove':
+          var gameId = btn.dataset.game;
+          if (gameId) {
+            App.Shuffle.removeGame(gameId);
+            App.UI.renderQueue();
+          }
+          break;
+      }
+    });
   },
 
   _bindQueueActions: function(container) {
@@ -2149,6 +2730,14 @@ App.UI = {
             App.UI.renderAll();
           });
           break;
+        case 'start-ready':
+          var scheduleId = btn.dataset.schedule;
+          var entry = App.state.schedule.find(function(e) { return e.id === scheduleId; });
+          if (entry && App.Shuffle.arePlayersReady(scheduleId)) {
+            App.Courts.startGame(courtId, entry.teamA, entry.teamB);
+            App.UI.renderAll();
+          }
+          break;
       }
     });
   },
@@ -2182,6 +2771,22 @@ App.UI = {
 
         // Hints
         html += App.UI._renderCourtHints(match);
+      } else if (App.Shuffle.isShuffleMode()) {
+        // Shuffle mode: show assigned game or empty
+        var readyEntry = App.state.schedule.find(function(e) {
+          return e.courtId === court.id && e.status === 'ready';
+        });
+        if (readyEntry) {
+          var allReady = App.Shuffle.arePlayersReady(readyEntry.id);
+          html += App.UI._renderScheduleTeams(readyEntry);
+          html += '<div style="font-size:12px; color:' + (allReady ? 'var(--success)' : 'var(--warning)') + '; margin:6px 0;">' +
+            (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers')) + '</div>';
+          html += '<div class="court-actions">';
+          html += '<button class="btn btn-success" data-action="start-ready" data-schedule="' + readyEntry.id + '"' + (allReady ? '' : ' disabled') + '>' + App.t('startGame') + '</button>';
+          html += '</div>';
+        } else {
+          html += '<div class="court-empty">' + App.t('noGameAssigned') + '</div>';
+        }
       } else {
         html += '<div class="court-empty">' + App.t('courtFree') + '</div>';
         html += '<div class="court-actions">';
@@ -2195,6 +2800,24 @@ App.UI = {
 
     document.getElementById('courtsGrid').innerHTML = html;
     this.cacheTimerElements();
+  },
+
+  _renderScheduleTeams: function(entry) {
+    var html = '<div class="court-teams">';
+    html += '<div class="team team-a">';
+    entry.teamA.forEach(function(pid) {
+      var p = App.state.players[pid];
+      html += '<span><strong>#' + (p ? p.number : '?') + '</strong> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+    });
+    html += '</div>';
+    html += '<div class="vs">vs</div>';
+    html += '<div class="team team-b">';
+    entry.teamB.forEach(function(pid) {
+      var p = App.state.players[pid];
+      html += '<span><strong>#' + (p ? p.number : '?') + '</strong> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+    });
+    html += '</div></div>';
+    return html;
   },
 
   _renderTeams: function(match) {
@@ -2596,6 +3219,7 @@ App.UI = {
     var courts = Object.values(App.state.courts).sort(function(a, b) {
       return a.displayNumber - b.displayNumber;
     });
+    var isShuffle = App.Shuffle.isShuffleMode();
 
     // Courts
     var html = '';
@@ -2603,7 +3227,16 @@ App.UI = {
       var match = court.currentMatch ? App.state.matches[court.currentMatch] : null;
       var isOccupied = court.occupied && match && match.status === 'playing';
 
-      html += '<div class="board-court-card ' + (isOccupied ? 'occupied' : 'free') + '" data-court-id="' + court.id + '">';
+      // In shuffle mode, check for a ready game on this court
+      var readyEntry = null;
+      if (isShuffle && !isOccupied) {
+        readyEntry = App.state.schedule.find(function(e) {
+          return e.courtId === court.id && e.status === 'ready';
+        });
+      }
+
+      var cardClass = isOccupied ? 'occupied' : (readyEntry ? 'ready' : 'free');
+      html += '<div class="board-court-card ' + cardClass + '" data-court-id="' + court.id + '">';
       html += '<div class="board-court-header">';
       html += '<h2>' + App.t('court') + court.displayNumber + '</h2>';
       if (isOccupied) {
@@ -2631,6 +3264,32 @@ App.UI = {
         html += '<div class="board-court-actions">';
         html += '<button class="btn btn-success" data-action="board-finish" data-court="' + court.id + '">' + App.t('boardFinish') + '</button>';
         html += '</div>';
+      } else if (readyEntry) {
+        // Shuffle mode: ready game assigned to this court
+        var allReady = App.Shuffle.arePlayersReady(readyEntry.id);
+        html += '<div class="board-court-teams">';
+        html += '<div class="board-team board-team-a">';
+        readyEntry.teamA.forEach(function(pid) {
+          var p = App.state.players[pid];
+          var busy = App.Players.isOnCourt(pid);
+          html += '<span' + (busy ? ' class="player-busy"' : '') + '><span class="board-player-num">#' + (p ? p.number : '?') + '</span> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+        });
+        html += '</div>';
+        html += '<div class="board-vs">vs</div>';
+        html += '<div class="board-team board-team-b">';
+        readyEntry.teamB.forEach(function(pid) {
+          var p = App.state.players[pid];
+          var busy = App.Players.isOnCourt(pid);
+          html += '<span' + (busy ? ' class="player-busy"' : '') + '><span class="board-player-num">#' + (p ? p.number : '?') + '</span> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+        });
+        html += '</div></div>';
+        html += '<div style="text-align:center; font-size:12px; color:' + (allReady ? 'var(--success)' : 'var(--warning)') + '; margin:6px 0;">' +
+          (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers')) + '</div>';
+        html += '<div class="board-court-actions">';
+        html += '<button class="btn btn-success" data-action="board-start-ready" data-court="' + court.id + '" data-schedule="' + readyEntry.id + '"' + (allReady ? '' : ' disabled') + '>' + App.t('startGame') + '</button>';
+        html += '</div>';
+      } else if (isShuffle) {
+        html += '<div class="court-empty">' + App.t('waitingForSchedule') + '</div>';
       } else {
         html += '<div class="court-empty">' + App.t('boardFree') + '</div>';
         html += '<div class="board-court-actions">';
@@ -2643,34 +3302,74 @@ App.UI = {
 
     document.getElementById('boardCourts').innerHTML = html;
 
-    // Queue
-    var queue = App.state.waitingQueue;
-    document.getElementById('boardQueueCount').textContent = queue.length;
+    // Sidebar: Queue or Upcoming
+    if (isShuffle) {
+      var upcoming = App.Shuffle.getUpcoming();
+      var sidebarHeading = App.t('upcoming');
+      var _bqh = document.querySelector('.board-queue h2'); if (_bqh) _bqh.innerHTML = '<span>' + sidebarHeading + '</span> <span class="badge" id="boardQueueCount">' + upcoming.length + '</span>';
 
-    var qhtml = '';
-    queue.forEach(function(pid, idx) {
-      var p = App.state.players[pid];
-      if (!p) return;
-      qhtml += '<div class="board-queue-item">' +
-        '<span class="bq-pos">' + (idx + 1) + '.</span>' +
-        '<span class="bq-number">#' + (p.number || '?') + '</span>' +
-        '<span class="bq-name">' + App.UI._esc(p.name) + '</span>' +
-        '<span class="bq-games">' + App.tGames(p.gamesPlayed) + '</span>' +
-        '<span class="bq-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
-          App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
-        '</div>';
-    });
+      var qhtml = '';
+      upcoming.forEach(function(entry, idx) {
+        var teamANames = entry.teamA.map(function(pid) {
+          var p = App.state.players[pid];
+          return p ? ('#' + p.number + ' ' + App.UI._esc(p.name)) : '?';
+        }).join(' + ');
+        var teamBNames = entry.teamB.map(function(pid) {
+          var p = App.state.players[pid];
+          return p ? ('#' + p.number + ' ' + App.UI._esc(p.name)) : '?';
+        }).join(' + ');
 
-    if (queue.length === 0) {
-      qhtml = '<div style="text-align:center; color:var(--text-secondary); padding:12px;">' + App.t('queueEmpty') + '</div>';
+        qhtml += '<div class="schedule-game pending">' +
+          '<div style="font-size:12px; color:var(--text-secondary); margin-bottom:2px;">' + App.t('scheduleGame') + ' ' + (idx + 1) + '</div>' +
+          '<div style="font-size:14px; font-weight:500;">' + teamANames + ' <span style="color:var(--text-secondary)">vs</span> ' + teamBNames + '</div>' +
+          '</div>';
+      });
+
+      if (upcoming.length === 0) {
+        qhtml = '<div style="text-align:center; color:var(--text-secondary); padding:12px;">' + App.t('scheduleEmpty') + '</div>';
+      }
+
+      // Continue shuffle button
+      qhtml += '<div style="text-align:center; padding:8px 0;">';
+      qhtml += '<button class="btn btn-primary btn-sm" data-action="board-continue-shuffle">' + App.t('shuffleContinue') + '</button>';
+      qhtml += '</div>';
+
+      document.getElementById('boardQueueList').innerHTML = qhtml;
+    } else {
+      // Queue mode (original)
+      var queue = App.state.waitingQueue;
+      var _bqh = document.querySelector('.board-queue h2'); if (_bqh) _bqh.innerHTML = '<span data-i18n="queue">' + App.t('queue') + '</span> <span class="badge" id="boardQueueCount">' + queue.length + '</span>';
+
+      var qhtml = '';
+      queue.forEach(function(pid, idx) {
+        var p = App.state.players[pid];
+        if (!p) return;
+        qhtml += '<div class="board-queue-item">' +
+          '<span class="bq-pos">' + (idx + 1) + '.</span>' +
+          '<span class="bq-number">#' + (p.number || '?') + '</span>' +
+          '<span class="bq-name">' + App.UI._esc(p.name) + '</span>' +
+          '<span class="bq-games">' + App.tGames(p.gamesPlayed) + '</span>' +
+          '<span class="bq-timer" data-queue-start="' + (p.queueEntryTime || 0) + '">' +
+            App.Utils.formatWaitMinutes(p.queueEntryTime ? Date.now() - p.queueEntryTime : 0) + '</span>' +
+          '</div>';
+      });
+
+      if (queue.length === 0) {
+        qhtml = '<div style="text-align:center; color:var(--text-secondary); padding:12px;">' + App.t('queueEmpty') + '</div>';
+      }
+
+      document.getElementById('boardQueueList').innerHTML = qhtml;
     }
-
-    document.getElementById('boardQueueList').innerHTML = qhtml;
 
     // Bind board action buttons (once — container element persists across renders)
     if (!document.getElementById('boardCourts')._bound) {
       this._bindBoardActions();
       document.getElementById('boardCourts')._bound = true;
+    }
+    // Bind sidebar actions (once)
+    if (!document.getElementById('boardQueueList')._bound) {
+      this._bindBoardSidebarActions();
+      document.getElementById('boardQueueList')._bound = true;
     }
     this.cacheTimerElements();
   },
@@ -2690,6 +3389,28 @@ App.UI = {
         case 'board-suggest':
           self._suggestForCourt(courtId);
           break;
+        case 'board-start-ready':
+          // Start a ready shuffle game
+          var scheduleId = btn.dataset.schedule;
+          var entry = App.state.schedule.find(function(e) { return e.id === scheduleId; });
+          if (entry && App.Shuffle.arePlayersReady(scheduleId)) {
+            App.Courts.startGame(courtId, entry.teamA, entry.teamB);
+            App.UI.renderAll();
+          }
+          break;
+      }
+    });
+  },
+
+  _bindBoardSidebarActions: function() {
+    document.getElementById('boardQueueList').addEventListener('click', function(e) {
+      if (App.Lock.isLocked()) return;
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      if (btn.dataset.action === 'board-continue-shuffle') {
+        App.Shuffle.continueShuffle();
+        App.Shuffle.autoAssignAll();
+        App.UI.renderAll();
       }
     });
   },

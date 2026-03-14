@@ -124,6 +124,7 @@ Single global `App` object (created in `assets/js/i18n.js`) with modules:
 | `App.Courts`   | Start/finish/cancel games, pair stats, score tracking |
 | `App.Matches`  | Match history, filtering, undo last match          |
 | `App.Suggest`  | Auto-suggestion algorithm for next 2-4 players     |
+| `App.Shuffle`  | Shuffle mode: batch game generation & scheduling   |
 | `App.Lock`     | Session lock/unlock, auto-lock timer               |
 | `App.Sync`     | Firebase Realtime Database sync                    |
 | `App.UI`       | All rendering, event binding, modals, toasts       |
@@ -152,6 +153,15 @@ Pencil button (✎) on each player row opens a rename modal with text input and 
 
 ### Emoji Name Disambiguation
 When adding a player whose name already exists (case-insensitive), an emoji picker appears below the input with animal emojis (🐶🐱🐰🦊🐼🐸...). Tapping one adds the player as e.g. "Ola 🐶". A "skip" option allows adding the duplicate name as-is. Hidden when not needed — no distraction for normal flow.
+
+### Session Modes
+
+Two modes, chosen at session creation:
+
+- **Queue mode** (default): Players join a waiting queue, coach suggests/selects players per court, finished players return to queue end. Traditional flow.
+- **Shuffle mode**: Coach generates a batch of games upfront via smart algorithm. Games auto-assign to free courts. Sidebar shows upcoming games instead of queue. Schedule tab replaces Queue tab.
+
+Mode stored as `state.mode` ('queue' | 'shuffle'). Schedule stored as `state.schedule[]` with entries: `{ id, teamA, teamB, status, courtId, matchId }`. Status lifecycle: `pending` → `ready` (assigned to court) → `playing` → `finished`.
 
 ### Living Queue
 Players arrive and get a sequential number (#1, #2, ...). New players (0 games played) are inserted ahead of players who have already played, so latecomers get to play sooner. After a game finishes, all players return to the **end** of the queue. Queue position is the primary factor for next game selection.
@@ -256,10 +266,12 @@ Session state stored in `localStorage` as `bs_YYYY-MM-DD` (local) or `bs_<syncSe
   version: 1,
   date: "2026-03-10",
   name: "",
+  mode: "queue",           // "queue" | "shuffle"
   players: { [id]: Player },
   waitingQueue: [playerId, ...],
   courts: { [id]: Court },
   matches: { [id]: Match },
+  schedule: [],            // shuffle mode only — ordered list of planned games
   settings: { syncEnabled, syncSessionId, locked, autoLockTime, clearQueueOnLock, showResults, resultsLimit },
   nextPlayerNumber: 1,
   isAdmin: true
@@ -271,3 +283,5 @@ Session state stored in `localStorage` as `bs_YYYY-MM-DD` (local) or `bs_<syncSe
 **Court:** `{ id, displayNumber, active, occupied, currentMatch, gameStartTime }`
 
 **Match:** `{ id, startTime, endTime, courtId, teamA: [id, ...], teamB: [id, ...], score, status }` — teams have 1-2 players each (supports 1v1, 2v1, 2v2)
+
+**Schedule entry (shuffle mode):** `{ id, teamA: [id, ...], teamB: [id, ...], status, courtId, matchId }` — status: pending → ready → playing → finished
