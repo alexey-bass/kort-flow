@@ -1364,7 +1364,14 @@ App.Shuffle = {
       scored.sort(function(a, b) { return a.score - b.score; });
 
       var gameSize = Math.min(4, available.length);
-      var picked = scored.slice(0, gameSize).map(function(s) { return s.player; });
+      var picked = scored.slice(0, gameSize);
+
+      // Diversify: avoid re-grouping 3+ players from a recent game
+      if (gameSize === 4) {
+        picked = this._diversifyPicked(picked, scored, App.state.schedule, batchUsed);
+      }
+
+      picked = picked.map(function(s) { return s.player; });
 
       // Split teams using existing algorithm with virtual history
       var split = this._splitWithVirtual(picked, virtualPartner, virtualOpponent);
@@ -1412,6 +1419,62 @@ App.Shuffle = {
   },
 
   // Split teams using virtual (accumulated) history instead of real player stats
+  // If 3+ of the 4 picked players were in the same recent game, swap
+  // the lowest-priority overlapping player with the best available alternative
+  _diversifyPicked: function(picked, scored, schedule, batchUsed) {
+    // Collect recent games: finished matches + non-finished schedule entries
+    var recentGames = [];
+    App.Matches.getFinished().slice(0, 10).forEach(function(m) {
+      recentGames.push(m.teamA.concat(m.teamB));
+    });
+    schedule.forEach(function(e) {
+      if (e.status !== 'finished') {
+        recentGames.push(e.teamA.concat(e.teamB));
+      }
+    });
+
+    if (recentGames.length === 0) return picked;
+
+    var maxPasses = 4;
+    for (var pass = 0; pass < maxPasses; pass++) {
+      var swapped = false;
+      for (var r = 0; r < recentGames.length; r++) {
+        var gamePids = recentGames[r];
+        var overlap = picked.filter(function(s) {
+          return gamePids.indexOf(s.player.id) !== -1;
+        });
+
+        if (overlap.length < 3) continue;
+
+        // Swap the worst-scoring overlapping player
+        overlap.sort(function(a, b) { return b.score - a.score; });
+        var toReplace = overlap[0];
+
+        var pickedIds = picked.map(function(s) { return s.player.id; });
+        var replacement = null;
+        for (var c = 0; c < scored.length; c++) {
+          var cand = scored[c];
+          if (pickedIds.indexOf(cand.player.id) !== -1) continue;
+          if (batchUsed && batchUsed[cand.player.id]) continue;
+          if (gamePids.indexOf(cand.player.id) !== -1) continue;
+          replacement = cand;
+          break;
+        }
+
+        if (replacement) {
+          var idx = picked.indexOf(toReplace);
+          picked[idx] = replacement;
+          picked.sort(function(a, b) { return a.score - b.score; });
+          swapped = true;
+          break;
+        }
+      }
+      if (!swapped) break;
+    }
+
+    return picked;
+  },
+
   _splitWithVirtual: function(gamePlayers, vPartner, vOpponent) {
     var ids = gamePlayers.map(function(p) { return p.id; });
     var splits;

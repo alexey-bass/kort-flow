@@ -135,6 +135,21 @@ describe('App.Shuffle', function() {
         assert.strictEqual(unique.size, all.length, 'Players should be unique in game ' + entry.id);
       });
     });
+
+    it('should avoid re-grouping same 4 players in consecutive games', function() {
+      var ids = createShuffleSession(8);
+      // Generate 2 batches (4 games) — with 8 players and diversification,
+      // consecutive games across batches should not repeat the same group
+      App.Shuffle.generate(4);
+      for (var i = 0; i < App.state.schedule.length - 1; i++) {
+        var g1 = App.state.schedule[i];
+        var g2 = App.state.schedule[i + 1];
+        var pids1 = g1.teamA.concat(g1.teamB);
+        var pids2 = g2.teamA.concat(g2.teamB);
+        var overlap = pids1.filter(function(p) { return pids2.indexOf(p) !== -1; });
+        assert.ok(overlap.length < 3, 'Games ' + (i+1) + ' and ' + (i+2) + ' share ' + overlap.length + ' players (max 2)');
+      }
+    });
   });
 
   describe('continueShuffle', function() {
