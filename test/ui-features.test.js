@@ -4,46 +4,28 @@ var { loadApp, createMockElement } = require('./helpers');
 
 var App = loadApp();
 
-describe('Session ID salt', function() {
-  // The salt logic uses this regex to strip existing salt before adding new one
-  var saltRegex = /-[a-z0-9]{5}$/;
-
-  describe('salt regex', function() {
-    it('should match a 5-char alphanumeric suffix', function() {
-      assert.ok(saltRegex.test('badminton-2026-03-10-k7x2m'));
+describe('Auto-generated session ID', function() {
+  describe('generateSessionId', function() {
+    it('should start with bf- prefix', function() {
+      var id = App.Utils.generateSessionId();
+      assert.ok(id.startsWith('bf-'), 'ID should start with bf-: ' + id);
     });
 
-    it('should not match the date portion', function() {
-      // '03-10' is 5 chars but contains a hyphen, so won't match [a-z0-9]{5}
-      var base = 'badminton-2026-03-10';
-      var replaced = base.replace(saltRegex, '');
-      assert.strictEqual(replaced, base);
+    it('should be 10 characters long (bf- + 7 chars)', function() {
+      var id = App.Utils.generateSessionId();
+      assert.strictEqual(id.length, 10);
     });
 
-    it('should strip only the salt suffix', function() {
-      var salted = 'badminton-2026-03-10-abc12';
-      var stripped = salted.replace(saltRegex, '');
-      assert.strictEqual(stripped, 'badminton-2026-03-10');
+    it('should contain only alphanumeric chars after prefix', function() {
+      var id = App.Utils.generateSessionId();
+      var hash = id.slice(3);
+      assert.match(hash, /^[a-z0-9]+$/);
     });
 
-    it('should handle custom session names with salt', function() {
-      var salted = 'my-session-zz99a';
-      var stripped = salted.replace(saltRegex, '');
-      assert.strictEqual(stripped, 'my-session');
-    });
-  });
-
-  describe('salt generation', function() {
-    it('should produce a 5-character alphanumeric string', function() {
-      var salt = Math.random().toString(36).substr(2, 5);
-      assert.match(salt, /^[a-z0-9]{3,5}$/);
-    });
-
-    it('should produce different salts on successive calls', function() {
-      var salt1 = Math.random().toString(36).substr(2, 5);
-      var salt2 = Math.random().toString(36).substr(2, 5);
-      // Extremely unlikely to be equal
-      assert.notStrictEqual(salt1, salt2);
+    it('should produce unique IDs', function() {
+      var id1 = App.Utils.generateSessionId();
+      var id2 = App.Utils.generateSessionId();
+      assert.notStrictEqual(id1, id2);
     });
   });
 });

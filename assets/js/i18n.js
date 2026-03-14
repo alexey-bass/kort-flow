@@ -65,12 +65,13 @@ App.i18n = {
 
       // Sync
       syncFirebase: 'Synchronizacja Firebase',
-      syncDesc: 'Synchronizuj dane między urządzeniami w czasie rzeczywistym. ID sesji to nazwa wspólnego pokoju — każdy kto je zna, może dołączyć i zobaczyć dane. Użyj 🎲 aby dodać losowy kod i utrudnić zgadnięcie ID.',
+      syncDesc: 'Synchronizuj dane między urządzeniami w czasie rzeczywistym. Utwórz sesję i udostępnij link — każdy kto go ma, może dołączyć i zobaczyć dane.',
       sessionIdLabel: 'ID sesji',
       createSession: 'Utwórz sesję',
       joinSession: 'Dołącz',
       disconnect: 'Rozłącz',
-      addSaltTooltip: 'Dodaj losowy kod — trudniej zgadnąć ID',
+      joinSessionIdLabel: 'ID sesji do dołączenia',
+      joinSessionIdPlaceholder: 'Wklej ID sesji',
       shareLink: 'Link do udostępnienia:',
       copyLink: 'Kopiuj',
       linkCopied: 'Link skopiowany!',
@@ -325,7 +326,9 @@ App.i18n = {
       // Shuffle mode
       sessionMode: 'Tryb sesji',
       modeQueue: 'Kolejka',
+      modeQueueDesc: 'Gracze czekają w kolejce. Trener wybiera skład na każdy kort.',
       modeShuffle: 'Losowanie',
+      modeShuffleDesc: 'Trener generuje wszystkie gry naraz. Korty wypełniają się automatycznie.',
       tabSchedule: 'Harmonogram',
       shuffleGenerate: 'Losuj gry',
       shuffleContinue: 'Dolosuj',
@@ -399,12 +402,13 @@ App.i18n = {
 
       // Sync
       syncFirebase: 'Firebase Sync',
-      syncDesc: 'Sync data between devices in real time. The session ID is the name of a shared room — anyone who knows it can join and see the data. Use 🎲 to add a random code and make the ID harder to guess.',
+      syncDesc: 'Sync data between devices in real time. Create a session and share the link — anyone with the link can join and see the data.',
       sessionIdLabel: 'Session ID',
       createSession: 'Create session',
       joinSession: 'Join',
       disconnect: 'Disconnect',
-      addSaltTooltip: 'Add random code — harder to guess the ID',
+      joinSessionIdLabel: 'Session ID to join',
+      joinSessionIdPlaceholder: 'Paste session ID',
       shareLink: 'Share link:',
       copyLink: 'Copy',
       linkCopied: 'Link copied!',
@@ -659,7 +663,9 @@ App.i18n = {
       // Shuffle mode
       sessionMode: 'Session mode',
       modeQueue: 'Queue',
+      modeQueueDesc: 'Players wait in line. Coach picks teams per court.',
       modeShuffle: 'Shuffle',
+      modeShuffleDesc: 'Coach generates all games at once. Courts fill automatically.',
       tabSchedule: 'Schedule',
       shuffleGenerate: 'Shuffle games',
       shuffleContinue: 'Continue shuffle',

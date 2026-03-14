@@ -25,6 +25,10 @@ App.Utils = {
     return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
   },
 
+  generateSessionId: function() {
+    return 'bf-' + Math.random().toString(36).substr(2, 7);
+  },
+
   formatTime: function(ms) {
     if (!ms || ms <= 0) return '0:00';
     var totalSec = Math.floor(ms / 1000);
@@ -1948,10 +1952,14 @@ App.UI = {
       html += '<input type="text" id="sessionNameInput" placeholder="' + App.t('sessionNamePlaceholder') + '" style="display:block; width:100%; box-sizing:border-box; padding:12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:16px; margin:6px 0 12px;">';
       html += '<label style="font-size:13px; color:var(--text-secondary);">' + App.t('sessionMode') + '</label>';
       html += '<div style="display:flex; gap:8px; margin:6px 0 16px;">';
-      html += '<label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeQueueLabel">';
-      html += '<input type="radio" name="sessionMode" value="queue" checked> <span>' + App.t('modeQueue') + '</span></label>';
-      html += '<label style="flex:1; display:flex; align-items:center; gap:6px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeShuffleLabel">';
-      html += '<input type="radio" name="sessionMode" value="shuffle"> <span>' + App.t('modeShuffle') + '</span></label>';
+      html += '<label style="flex:1; display:flex; flex-direction:column; gap:4px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeQueueLabel">';
+      html += '<div style="display:flex; align-items:center; gap:6px;"><input type="radio" name="sessionMode" value="queue" checked> <strong>' + App.t('modeQueue') + '</strong></div>';
+      html += '<div style="font-size:12px; color:var(--text-secondary); padding-left:22px;">' + App.t('modeQueueDesc') + '</div>';
+      html += '</label>';
+      html += '<label style="flex:1; display:flex; flex-direction:column; gap:4px; padding:10px 12px; border:2px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;" id="modeShuffleLabel">';
+      html += '<div style="display:flex; align-items:center; gap:6px;"><input type="radio" name="sessionMode" value="shuffle"> <strong>' + App.t('modeShuffle') + '</strong></div>';
+      html += '<div style="font-size:12px; color:var(--text-secondary); padding-left:22px;">' + App.t('modeShuffleDesc') + '</div>';
+      html += '</label>';
       html += '</div>';
       html += '<div class="btn-row">';
       html += '<button class="btn btn-success" id="btnNewSessionOk">' + App.t('ok') + '</button>';
@@ -3728,16 +3736,21 @@ App.UI = {
   },
 
   renderSync: function() {
-    // Update share link visibility based on connection state
     var shareLinkEl = document.getElementById('syncShareLink');
     var disconnectBtn = document.getElementById('btnDisconnect');
+    var createBtn = document.getElementById('btnCreateSession');
+    var joinRow = document.getElementById('joinSessionRow');
     if (App.Sync.connected) {
       disconnectBtn.hidden = false;
+      if (createBtn) createBtn.hidden = true;
+      if (joinRow) joinRow.hidden = true;
       shareLinkEl.hidden = false;
       var url = this._buildShareUrl(App.state.settings.syncSessionId);
       document.getElementById('syncShareUrl').value = url;
     } else {
       disconnectBtn.hidden = true;
+      if (createBtn) createBtn.hidden = false;
+      if (joinRow) joinRow.hidden = false;
       shareLinkEl.hidden = true;
     }
   },
@@ -3790,24 +3803,8 @@ App.UI = {
   _bindSync: function() {
     var self = this;
 
-    document.getElementById('btnAddSalt').addEventListener('click', function() {
-      var input = document.getElementById('sessionIdInput');
-      var current = input.value.trim();
-      if (!current) {
-        current = 'badminton-' + App.state.date;
-      }
-      // Remove existing salt (last -XXXXX suffix) if present, then add new one
-      current = current.replace(/-[a-z0-9]{5}$/, '');
-      var salt = Math.random().toString(36).substr(2, 5);
-      input.value = current + '-' + salt;
-    });
-
     document.getElementById('btnCreateSession').addEventListener('click', function() {
-      var sessionId = document.getElementById('sessionIdInput').value.trim();
-      if (!sessionId) {
-        sessionId = 'badminton-' + App.state.date;
-        document.getElementById('sessionIdInput').value = sessionId;
-      }
+      var sessionId = App.Utils.generateSessionId();
 
       var hasData = Object.keys(App.state.players).length > 0 ||
                     Object.keys(App.state.matches).length > 0;
