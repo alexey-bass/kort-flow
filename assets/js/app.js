@@ -1422,15 +1422,13 @@ App.Shuffle = {
   // If 3+ of the 4 picked players were in the same recent game, swap
   // the lowest-priority overlapping player with the best available alternative
   _diversifyPicked: function(picked, scored, schedule, batchUsed) {
-    // Collect recent games: finished matches + non-finished schedule entries
+    // Collect all recent games: finished matches + all schedule entries
     var recentGames = [];
     App.Matches.getFinished().slice(0, 10).forEach(function(m) {
       recentGames.push(m.teamA.concat(m.teamB));
     });
     schedule.forEach(function(e) {
-      if (e.status !== 'finished') {
-        recentGames.push(e.teamA.concat(e.teamB));
-      }
+      recentGames.push(e.teamA.concat(e.teamB));
     });
 
     if (recentGames.length === 0) return picked;
@@ -1500,12 +1498,12 @@ App.Shuffle = {
       [split.teamA, split.teamB].forEach(function(team) {
         if (team.length < 2) return;
         var count = (vPartner[team[0]] && vPartner[team[0]][team[1]]) || 0;
-        if (count > 0) penalty += count * 30;
+        if (count > 0) penalty += count * 100;
       });
       split.teamA.forEach(function(pa) {
         split.teamB.forEach(function(pb) {
           var count = (vOpponent[pa] && vOpponent[pa][pb]) || 0;
-          if (count > 1) penalty += (count - 1) * 15;
+          if (count > 1) penalty += (count - 1) * 30;
         });
       });
       // Wish bonus
