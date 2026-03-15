@@ -71,9 +71,9 @@ service-worker.js               — Offline-first cache for app shell
 hooks/pre-commit                — Auto-stamps version, cache-bust params, SW version
 package.json                    — npm start script for local dev server
 CLAUDE.md                       — AI assistant context (architecture, data model)
-ALGO.md                         — Algorithm documentation with scoring and examples
+ALGO.md                         — Algorithm documentation with scoring weights, examples, quality criteria
 test/                           — Node.js tests (node:test runner)
-scripts/                        — Screenshots and simulation scripts
+scripts/                        — Screenshots, simulation, and validation scripts
 ```
 
 ## How It Works
@@ -136,15 +136,17 @@ Sync uses Firebase Realtime Database. Configuration is inlined in `index.html`.
 Run a full session simulation to test the suggestion algorithm and generate an HTML report:
 
 ```bash
-npm run simulation    # defaults: 4 courts, 17 players, 2 late, 10 rounds, en
-npm run simulation -- --courts 2 --players 10 --late 1 --rounds 5   # custom
-npm run simulation -- --lang pl                                      # Polish report
-npm run simulation -- --courts 3 --players 20 --late 3 --rounds 15  # large session
+npm run simulation                                                    # queue mode: 4 courts, 17 players, 2 late, 10 rounds, en
+npm run simulation -- --courts 2 --players 10 --late 1 --rounds 5     # custom params
+npm run simulation -- --lang pl                                       # Polish report
+npm run simulation:shuffle                                            # shuffle mode: 4 courts, 17 players, 2 late, 10 rounds
+npm run simulation:shuffle -- --courts 4 --players 17 --rounds 10 --lang pl --output report.html
+npm run simulation:validate                                           # run 10 shuffle simulations, check quality criteria
 ```
 
-Parameters: `--courts N`, `--players N`, `--late N` (late arrivals), `--rounds N`, `--lang pl|en` (default: en).
+Queue simulation generates `simulation-report.html`, shuffle generates `simulation-shuffle-report.html`. Both support `--lang pl|en`. Open in browser and print to PDF.
 
-Generates `simulation-report.html` with player leaderboard, pair statistics, match log, and games distribution chart. Open in browser and print to PDF.
+`simulation:validate` runs 10 shuffle-mode simulations and checks algorithm quality criteria (see [ALGO.md](ALGO.md)): no partner pair repeats, no frequent opponents, no group regrouping, fair games distribution, late player fairness. Included in `npm run validate`.
 
 ## Tested On
 
