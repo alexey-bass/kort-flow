@@ -3627,6 +3627,7 @@ App.UI = {
         html += '</div></div>';
 
         html += '<div class="board-court-actions">';
+        html += '<button class="board-cancel-btn" data-action="board-cancel" data-court="' + court.id + '" title="' + App.t('cancel') + '">&#x21A9;</button>';
         html += '<button class="btn btn-success" data-action="board-finish" data-court="' + court.id + '">' + App.t('boardFinish') + '</button>';
         html += '</div>';
       } else if (readyEntry) {
@@ -3756,6 +3757,13 @@ App.UI = {
       switch (btn.dataset.action) {
         case 'board-finish':
           self._showFinishConfirm(courtId);
+          break;
+        case 'board-cancel':
+          self.showConfirm(App.t('confirmCancelGame'), function() {
+            App.Analytics.track('game_cancel');
+            App.Courts.cancelGame(courtId);
+            App.UI.renderAll();
+          });
           break;
         case 'board-suggest':
           self._suggestForCourt(courtId);
@@ -4246,24 +4254,19 @@ App.UI = {
     html += '<span class="finish-winner-icon">\uD83E\uDD1D</span> ' + App.t('matchDraw');
     html += '</button>';
 
-    // Expandable score section
-    html += '<div class="finish-score-toggle">';
-    html += '<a href="#" id="toggleScore">' + App.t('addScore') + '</a>';
-    html += '</div>';
-    html += '<div class="finish-score-section" id="scoreSection" style="display:none">';
+    // Score inputs (always visible)
     html += '<div class="finish-score-row">';
     html += '<input type="number" id="finishScoreA" class="score-input" min="0" max="99" placeholder="0">';
     html += '<span class="finish-score-sep">:</span>';
     html += '<input type="number" id="finishScoreB" class="score-input" min="0" max="99" placeholder="0">';
     html += '</div>';
     html += '<p class="finish-hint">' + App.t('scoreOptional') + '</p>';
-    html += '<div class="btn-row">';
+
+    // Cancel & Finish buttons
+    html += '<div class="btn-row" style="justify-content:center">';
+    html += '<button class="btn btn-secondary" id="btnFinishCancel">' + App.t('cancelAction') + '</button>';
     html += '<button class="btn btn-success" id="btnFinishConfirm">' + App.t('finishConfirm') + '</button>';
     html += '</div>';
-    html += '</div>';
-
-    // Cancel
-    html += '<div class="finish-cancel"><a href="#" id="btnFinishCancel">' + App.t('cancelAction') + '</a></div>';
 
     this.showModal(html);
 
@@ -4279,15 +4282,6 @@ App.UI = {
     document.getElementById('btnWinnerA').addEventListener('click', function() { doFinish(null, 'teamA'); });
     document.getElementById('btnWinnerB').addEventListener('click', function() { doFinish(null, 'teamB'); });
     document.getElementById('btnDraw').addEventListener('click', function() { doFinish(null, 'draw'); });
-
-    document.getElementById('toggleScore').addEventListener('click', function(e) {
-      e.preventDefault();
-      var section = document.getElementById('scoreSection');
-      var visible = section.style.display !== 'none';
-      section.style.display = visible ? 'none' : 'block';
-      this.textContent = visible ? App.t('addScore') : App.t('hideScore');
-      if (!visible) document.getElementById('finishScoreA').focus();
-    });
 
     document.getElementById('btnFinishConfirm').addEventListener('click', function() {
       var scoreA = document.getElementById('finishScoreA').value.trim();

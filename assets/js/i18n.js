@@ -111,8 +111,6 @@ App.i18n = {
       finishConfirm: 'Zakończ',
       declareWinnerHint: 'Wybierz zwycięski zespół',
       matchDraw: 'Remis',
-      addScore: 'Dodaj wynik',
-      hideScore: 'Ukryj wynik',
 
       // Fullscreen & Wake Lock
       fullscreenTooltip: 'Pełny ekran',
@@ -461,8 +459,6 @@ App.i18n = {
       finishConfirm: 'Finish',
       declareWinnerHint: 'Select the winning team',
       matchDraw: 'Match Tied (Draw)',
-      addScore: 'Add score',
-      hideScore: 'Hide score',
 
       // Fullscreen & Wake Lock
       fullscreenTooltip: 'Fullscreen',

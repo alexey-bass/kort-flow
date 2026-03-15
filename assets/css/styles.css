@@ -1140,6 +1140,7 @@ body.player-mode .admin-only {
 
 .board-court-actions {
   margin-top: 10px;
+  margin-bottom: -4px;
   display: flex;
   gap: 8px;
 }
@@ -1148,6 +1149,17 @@ body.player-mode .admin-only {
   flex: 1;
   padding: 14px;
   font-size: 16px;
+}
+
+.board-cancel-btn {
+  flex: 0 0 44px;
+  padding: 0;
+  font-size: 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
 
 .board-queue h2 {
@@ -1478,6 +1490,7 @@ body.player-mode .admin-only {
 
 .finish-winner-icon {
   display: inline;
+  margin-right: 4px;
 }
 
 .finish-draw-btn {
@@ -1504,23 +1517,6 @@ body.player-mode .admin-only {
   color: var(--text-secondary);
   font-weight: 400;
   font-size: 13px;
-}
-
-.finish-score-toggle {
-  text-align: center;
-  margin: 12px 0 4px;
-}
-
-.finish-score-toggle a {
-  font-size: 13px;
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.finish-score-section {
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-  padding-top: 8px;
 }
 
 .finish-score-row {
@@ -1560,16 +1556,6 @@ body.player-mode .admin-only {
   margin: 4px 0 16px;
 }
 
-.finish-cancel {
-  text-align: center;
-  margin-top: 8px;
-}
-
-.finish-cancel a {
-  font-size: 14px;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
 
 /* --- Results table --- */
 .results-table {
