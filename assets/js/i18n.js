@@ -349,6 +349,14 @@ App.i18n = {
       statScheduled: 'Zaplanowane',
       statScheduleFinished: 'Rozegrane',
 
+      // Court utilization
+      courtUtilization: 'Wykorzystanie kortów',
+      utilCourt: 'Kort',
+      utilOverall: 'Ogółem',
+      utilAvgGame: 'Śr. gra',
+      utilSession: 'Sesja',
+      utilNoData: 'Brak danych — rozegraj pierwszy mecz',
+
     },
 
     en: {
@@ -686,6 +694,14 @@ App.i18n = {
       queueModeBadge: 'Queue',
       statScheduled: 'Scheduled',
       statScheduleFinished: 'Finished',
+
+      // Court utilization
+      courtUtilization: 'Court utilization',
+      utilCourt: 'Court',
+      utilOverall: 'Overall',
+      utilAvgGame: 'Avg game',
+      utilSession: 'Session',
+      utilNoData: 'No data yet — play the first game',
 
     }
   },
