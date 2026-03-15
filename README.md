@@ -11,9 +11,9 @@ Web app for managing player queues and court assignments during amateur badminto
 - **Living queue** — automatic arrival numbering, games played counter, live wait timer, auto-requeue after each game
 - **Flexible game formats** — 2v2 (default), 2v1, and 1v1 when not enough players for full doubles
 - **Smart suggestions** — algorithm picks next 2–4 players based on queue position, games balance, and wishes
-- **Court management** — 1–5 configurable courts, finish confirmation with optional score
+- **Court management** — 1–5 configurable courts, quick winner declaration or score entry on finish, cancel button for accidental starts
 - **Team splitting** — minimizes pair/opponent repeats, respects wish pairings, custom swap option with bench
-- **Score tracking** — optional score input on game finish, win/loss and points per player
+- **Score tracking** — declare winner with one tap or enter exact score, win/loss and points per player
 - **Results leaderboard** — ranked by wins, win rate, and point differential; click any player for detailed stats; configurable visibility and limit (full/top 3/5/10)
 - **Player statistics** — per-player modal with favorite partner, best pair, most common opponent, head-to-head records
 - **Session highlights** — fun stats: most active, win streak, top scorer, social butterfly, rivals, most patient, avg wait time
@@ -101,7 +101,7 @@ Three algorithmic split options are shown (when applicable), plus a **Custom** o
 
 ### Score Tracking
 
-When finishing a game, a confirmation modal lets you optionally enter the score (e.g. 21:15). If entered, wins/losses and points are tracked per player and shown on the Results leaderboard.
+When finishing a game, a modal lets you declare the winner by tapping the winning team, declare a draw, or enter an exact score. Winner declaration tracks wins/losses without needing a score. If a score is entered (e.g. 21:15), points are also tracked per player. Results are shown on the leaderboard. A cancel button (↩) next to Finish lets you undo accidentally started games.
 
 ### Two Modes
 

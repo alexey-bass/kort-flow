@@ -212,8 +212,11 @@ Header layout (left to right): title + session name, lock indicator (🔒) | lan
 - Stored per device in `localStorage` (`badminton_zoom`), not synced — each device keeps its own zoom level
 
 ### Score Tracking
-- Finish confirmation modal with optional score input (e.g. 21:15)
+- Finish modal with winner declaration: tap the winning team, declare a draw, or enter a score
+- Winner can be declared without entering a score — wins/losses tracked, but no points
+- Optional score input always visible below winner buttons (e.g. 21:15)
 - If score provided: wins/losses and points scored/conceded tracked per player
+- Board court cards have a cancel button (↩) next to Finish for accidentally started games
 - Results tab shows leaderboard sorted by wins → win rate → point differential
 - Configurable via Session tab: hide Results tab in player mode (`showResults`), limit leaderboard to top 3/5/10 (`resultsLimit`)
 - Click any player row to open detailed stats modal: overview, favorite partner, best pair (min 2 games, win rate), most common opponent, head-to-head W/L table
@@ -281,6 +284,6 @@ Session state stored in `localStorage` as `bs_<sessionId>` (e.g. `bs_bf-x7kQ9m`)
 
 **Court:** `{ id, displayNumber, active, occupied, currentMatch, gameStartTime }`
 
-**Match:** `{ id, startTime, endTime, courtId, teamA: [id, ...], teamB: [id, ...], score, status }` — teams have 1-2 players each (supports 1v1, 2v1, 2v2)
+**Match:** `{ id, startTime, endTime, courtId, teamA: [id, ...], teamB: [id, ...], score, winner, status }` — teams have 1-2 players each (supports 1v1, 2v1, 2v2); winner: 'teamA' | 'teamB' | 'draw' | null
 
 **Schedule entry (shuffle mode):** `{ id, teamA: [id, ...], teamB: [id, ...], status, courtId, matchId }` — status: pending → ready → playing → finished
