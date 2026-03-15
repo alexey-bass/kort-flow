@@ -469,7 +469,10 @@ App.Players = {
 
     if (App.Shuffle.isShuffleMode()) {
       // Downgrade/remove affected pending games
-      App.Shuffle.handlePlayerAbsent(playerId);
+      var affected = App.Shuffle.handlePlayerAbsent(playerId);
+      if (affected > 0) {
+        App.UI.showToast(App.t('gamesAffected').replace('{n}', affected));
+      }
     } else {
       App.Queue.remove(playerId);
     }
@@ -1681,14 +1684,17 @@ App.Shuffle = {
   },
 
   // Handle player becoming absent — downgrade or remove affected pending/ready games
+  // Returns number of affected games
   handlePlayerAbsent: function(playerId) {
     var toRemove = [];
+    var affected = 0;
     App.state.schedule.forEach(function(entry) {
       if (entry.status !== 'pending' && entry.status !== 'ready') return;
       var inA = entry.teamA.indexOf(playerId);
       var inB = entry.teamB.indexOf(playerId);
       if (inA === -1 && inB === -1) return;
 
+      affected++;
       var all = entry.teamA.concat(entry.teamB);
       var remaining = all.filter(function(pid) { return pid !== playerId; });
 
@@ -1717,6 +1723,7 @@ App.Shuffle = {
     if (toRemove.length > 0 || App.state.schedule.length > 0) {
       App.save();
     }
+    return affected;
   },
 
   // Remove all pending and ready entries
