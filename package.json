@@ -5,8 +5,10 @@
     "start": "python3 -m http.server 8080",
     "test": "node --test test/*.test.js",
     "check": "node --check assets/js/app.js && node --check assets/js/i18n.js",
-    "validate": "npm run check && npm test && npm run lighthouse",
+    "validate": "npm run check && npm test && npm run simulation:validate && npm run lighthouse",
     "simulation": "node scripts/simulation.js",
+    "simulation:shuffle": "node scripts/simulation-shuffle.js",
+    "simulation:validate": "node scripts/simulation-validate.js",
     "screenshots": "node scripts/screenshots.js",
     "lighthouse": "node scripts/lighthouse.js"
   },

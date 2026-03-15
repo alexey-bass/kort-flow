@@ -710,6 +710,67 @@ describe('App.Shuffle', function() {
     });
   });
 
+  describe('_diversifyPicked pair-level', function() {
+    it('should swap out a player to avoid repeated partner pair', function() {
+      var ids = createShuffleSession(8);
+      // Generate first batch — creates partner history in virtualPartner
+      App.Shuffle.generate(2); // 2 games, fills 8 players across 2 courts
+      var entry1 = App.state.schedule[0];
+
+      // Find a pair from the first game's teamA
+      if (entry1.teamA.length === 2) {
+        var partnerA = entry1.teamA[0];
+        var partnerB = entry1.teamA[1];
+
+        // Generate more games
+        App.Shuffle.generate(4);
+
+        // Check that the same pair is not partners again
+        var repeatCount = 0;
+        App.state.schedule.forEach(function(e) {
+          [e.teamA, e.teamB].forEach(function(team) {
+            if (team.length === 2) {
+              if ((team[0] === partnerA && team[1] === partnerB) ||
+                  (team[0] === partnerB && team[1] === partnerA)) {
+                repeatCount++;
+              }
+            }
+          });
+        });
+        // With 8 players, the pair from game 1 should not repeat as partners
+        assert.ok(repeatCount <= 1, 'Partner pair should not repeat with 8 players, got ' + repeatCount + ' times');
+      }
+    });
+
+    it('should minimize partner repeats with enough players', function() {
+      createShuffleSession(12);
+      App.Shuffle.generate(10);
+
+      var pairs = {};
+      App.state.schedule.forEach(function(e) {
+        [e.teamA, e.teamB].forEach(function(t) {
+          if (t.length === 2) {
+            var k = [t[0], t[1]].sort().join('+');
+            pairs[k] = (pairs[k] || 0) + 1;
+          }
+        });
+      });
+      // Count how many pairs repeated (appeared 2+ times)
+      var repeatedPairs = Object.values(pairs).filter(function(c) { return c > 1; }).length;
+      var totalPairs = Object.keys(pairs).length;
+      // With pair diversification, most pairs should be unique
+      assert.ok(repeatedPairs <= Math.ceil(totalPairs * 0.15),
+        'At most 15% of pairs should repeat, got ' + repeatedPairs + '/' + totalPairs);
+    });
+
+    it('should tolerate unavoidable repeats with very few players', function() {
+      createShuffleSession(4);
+      // With only 4 players, repeats are inevitable
+      App.Shuffle.generate(6);
+      assert.strictEqual(App.state.schedule.length, 6, 'Should still generate all 6 games');
+    });
+  });
+
   describe('_ensureState migration', function() {
     it('should add mode and schedule to old state', function() {
       var state = App.Storage._ensureState({

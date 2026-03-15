@@ -98,9 +98,36 @@ Games are generated in **batches** of `courtCount` (e.g. 4 courts = batches of 4
 
 ### Diversification
 
-After picking 4 players for a game, the algorithm checks all previous schedule entries. If **3+ of the 4** were in the same earlier game, it swaps the lowest-priority overlapping player with someone else.
+After picking 4 players for a game, the algorithm runs two diversification passes.
+
+#### Pass 1: Group overlap (3+ players from the same game)
+
+Checks all previous schedule entries and last 10 finished matches. If **3+ of the 4** picked players were in the same earlier game, swaps the lowest-priority overlapping player with someone else.
 
 **Example:** Game #1 was Anna+Bob vs Cleo+Dan. When generating game #5, the algorithm picks Anna, Bob, Cleo, Eva. That's 3 from game #1 (Anna, Bob, Cleo) → swap Cleo with the next best candidate.
+
+#### Pass 2: Partner pair repeat
+
+Checks all pairs among the 4 picked players against their virtual partner history. If two players have **already been partners** (on the same team) in any previous or scheduled game, swaps the worse-scoring of the pair with a replacement who hasn't partnered with **any** of the remaining players.
+
+**Why "any remaining":** A naive approach that only checks the replacement against the kept partner can cascade — fixing one pair creates another. By checking against all 3 remaining players, each swap is clean and doesn't introduce new conflicts.
+
+**Why this matters:** Without this check, two players can end up as partners repeatedly even though the team-split step penalizes it. That's because the split step only chooses among 3 possible splits — if all 3 have penalties, the pair repeats anyway.
+
+**Example of the problem (17 players, 4 courts):**
+
+With 17 players and 4 courts, each round uses 16 players — almost everyone plays every round. Suppose Aleksy and Renata both have low game counts (Renata arrived late). The scorer picks both for game #12, and the split pairs them. Two rounds later, both still have relatively fewer games → picked again for game #18, split pairs them again.
+
+The 3+ group overlap check doesn't help here — only 2 of 4 players overlap, not 3. The split penalty of +100 isn't enough if the other 2 possible splits have even higher penalties (e.g. those players also have repeat histories).
+
+**How the pair check fixes it:**
+
+| Step | Game #12 | Game #18 (without pair check) | Game #18 (with pair check) |
+|------|----------|-------------------------------|----------------------------|
+| Picked | Aleksy, Renata, Bob, Cleo | Aleksy, Renata, Dan, Eva | Aleksy, **Filip**, Dan, Eva |
+| vPartner[Aleksy][Renata] | 0 → OK | 1 → **repeat detected!** | Renata swapped for Filip (vPartner=0 for all remaining) |
+
+The replacement candidate must not have a partner history with any of the remaining 3 players. If no clean replacement exists (very tight player pool), the pair stays — the algorithm does its best but doesn't force suboptimal games.
 
 ### Team splitting (stronger penalties)
 
@@ -135,7 +162,8 @@ So game #10 has full context of games #1–9, even though none have been played 
 | Partner repeat (split) | +30/time | +100/time | Team splitting |
 | Opponent repeat (split) | +15/time (>1) | +30/time (>1) | Team splitting |
 | Wish (split) | -100 | -100 | Team splitting |
-| Diversify threshold | 3+ overlap | 3+ overlap | Post-selection swap |
+| Diversify: group overlap | 3+ overlap | 3+ overlap | Post-selection swap |
+| Diversify: partner pair | — | vPartner > 0 | Post-selection swap (shuffle only) |
 
 ---
 
@@ -151,3 +179,26 @@ So game #10 has full context of games #1–9, even though none have been played 
 | Wish already fulfilled | No bonus (wish is checked off after first fulfillment) |
 | Wish partner not available | Wish ignored for this round |
 | Same 4 players keep getting picked | Diversification swaps one out after each occurrence |
+
+---
+
+## Quality criteria
+
+The algorithm is validated by running 10 shuffle-mode simulations (17 players, 4 courts, 10 rounds, 2 late arrivals) and checking these criteria. All must pass for every run.
+
+| Criterion | Threshold | Why |
+|-----------|-----------|-----|
+| **No partner pair repeats** | 0 repeated pairs | Two players should never be on the same team twice |
+| **No frequent opponents** | No pair facing each other 3+ times | Opponent variety keeps games interesting |
+| **No group regrouping** | No exact same 4 players in 2 games | Every game should feel like a new matchup |
+| **Fair games distribution** | Max − Min ≤ 3 games | Everyone plays roughly the same number of games |
+| **Late player fairness** | Late player games ≥ avg − 2 | Arriving late shouldn't mean sitting out too much |
+
+Run `npm run simulation:validate` to check all criteria across 10 simulations.
+
+### Why these numbers?
+
+- **Partner pairs:** With 17 players there are C(17,2) = 136 possible pairs. A 10-round session produces ~28 matches × 2 partner pairs = ~56 slots. That's only 41% of possible pairs — plenty of room to avoid repeats.
+- **Opponent threshold at 3:** With 4 players per game, each match creates 4 opponent pairs. At 28 matches = 112 opponent slots, facing someone twice is expected, but 3+ means the algorithm is clustering.
+- **Games spread ≤ 3:** Mathematically, 28 matches × 4 players ÷ 17 = 6.6 avg. A spread of 2-3 is expected (some players sit out one more round); more than 3 means unfair scheduling.
+- **Late fairness:** A player arriving 10 min late (missing ~1 round) should lose at most 1-2 games vs the average.

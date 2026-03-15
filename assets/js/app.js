@@ -1382,7 +1382,7 @@ App.Shuffle = {
 
       // Diversify: avoid re-grouping 3+ players from a recent game
       if (gameSize === 4) {
-        picked = this._diversifyPicked(picked, scored, App.state.schedule, batchUsed);
+        picked = this._diversifyPicked(picked, scored, App.state.schedule, batchUsed, virtualPartner);
       }
 
       picked = picked.map(function(s) { return s.player; });
@@ -1435,7 +1435,7 @@ App.Shuffle = {
   // Split teams using virtual (accumulated) history instead of real player stats
   // If 3+ of the 4 picked players were in the same recent game, swap
   // the lowest-priority overlapping player with the best available alternative
-  _diversifyPicked: function(picked, scored, schedule, batchUsed) {
+  _diversifyPicked: function(picked, scored, schedule, batchUsed, vPartner) {
     // Collect all recent games: finished matches + all schedule entries
     var recentGames = [];
     App.Matches.getFinished().slice(0, 10).forEach(function(m) {
@@ -1445,43 +1445,90 @@ App.Shuffle = {
       recentGames.push(e.teamA.concat(e.teamB));
     });
 
-    if (recentGames.length === 0) return picked;
+    if (recentGames.length === 0 && !vPartner) return picked;
 
-    var maxPasses = 4;
-    for (var pass = 0; pass < maxPasses; pass++) {
-      var swapped = false;
-      for (var r = 0; r < recentGames.length; r++) {
-        var gamePids = recentGames[r];
-        var overlap = picked.filter(function(s) {
-          return gamePids.indexOf(s.player.id) !== -1;
-        });
+    // Pass 1: avoid 3+ players from the same recent game
+    if (recentGames.length > 0) {
+      var maxPasses = 4;
+      for (var pass = 0; pass < maxPasses; pass++) {
+        var swapped = false;
+        for (var r = 0; r < recentGames.length; r++) {
+          var gamePids = recentGames[r];
+          var overlap = picked.filter(function(s) {
+            return gamePids.indexOf(s.player.id) !== -1;
+          });
 
-        if (overlap.length < 3) continue;
+          if (overlap.length < 3) continue;
 
-        // Swap the worst-scoring overlapping player
-        overlap.sort(function(a, b) { return b.score - a.score; });
-        var toReplace = overlap[0];
+          // Swap the worst-scoring overlapping player
+          overlap.sort(function(a, b) { return b.score - a.score; });
+          var toReplace = overlap[0];
 
-        var pickedIds = picked.map(function(s) { return s.player.id; });
-        var replacement = null;
-        for (var c = 0; c < scored.length; c++) {
-          var cand = scored[c];
-          if (pickedIds.indexOf(cand.player.id) !== -1) continue;
-          if (batchUsed && batchUsed[cand.player.id]) continue;
-          if (gamePids.indexOf(cand.player.id) !== -1) continue;
-          replacement = cand;
-          break;
+          var pickedIds = picked.map(function(s) { return s.player.id; });
+          var replacement = null;
+          for (var c = 0; c < scored.length; c++) {
+            var cand = scored[c];
+            if (pickedIds.indexOf(cand.player.id) !== -1) continue;
+            if (batchUsed && batchUsed[cand.player.id]) continue;
+            if (gamePids.indexOf(cand.player.id) !== -1) continue;
+            replacement = cand;
+            break;
+          }
+
+          if (replacement) {
+            var idx = picked.indexOf(toReplace);
+            picked[idx] = replacement;
+            picked.sort(function(a, b) { return a.score - b.score; });
+            swapped = true;
+            break;
+          }
         }
-
-        if (replacement) {
-          var idx = picked.indexOf(toReplace);
-          picked[idx] = replacement;
-          picked.sort(function(a, b) { return a.score - b.score; });
-          swapped = true;
-          break;
-        }
+        if (!swapped) break;
       }
-      if (!swapped) break;
+    }
+
+    // Pass 2: avoid repeated partner pairs
+    if (vPartner) {
+      var maxPairPasses = 6;
+      for (var pp = 0; pp < maxPairPasses; pp++) {
+        var pairSwapped = false;
+        for (var i = 0; i < picked.length && !pairSwapped; i++) {
+          for (var j = i + 1; j < picked.length && !pairSwapped; j++) {
+            var idA = picked[i].player.id;
+            var idB = picked[j].player.id;
+            var partnerCount = (vPartner[idA] && vPartner[idA][idB]) || 0;
+            if (partnerCount === 0) continue;
+
+            // Swap the worse-scoring of the two
+            var toSwap = (picked[i].score >= picked[j].score) ? picked[i] : picked[j];
+
+            // Remaining players after removing toSwap
+            var remainIds = picked.filter(function(s) { return s !== toSwap; }).map(function(s) { return s.player.id; });
+            var curIds = picked.map(function(s) { return s.player.id; });
+            var repl = null;
+            for (var c2 = 0; c2 < scored.length; c2++) {
+              var cand2 = scored[c2];
+              if (curIds.indexOf(cand2.player.id) !== -1) continue;
+              if (batchUsed && batchUsed[cand2.player.id]) continue;
+              // Replacement must not repeat partnership with ANY remaining player
+              var hasConflict = remainIds.some(function(rid) {
+                return (vPartner[cand2.player.id] && vPartner[cand2.player.id][rid]) > 0;
+              });
+              if (hasConflict) continue;
+              repl = cand2;
+              break;
+            }
+
+            if (repl) {
+              var idx2 = picked.indexOf(toSwap);
+              picked[idx2] = repl;
+              picked.sort(function(a, b) { return a.score - b.score; });
+              pairSwapped = true;
+            }
+          }
+        }
+        if (!pairSwapped) break;
+      }
     }
 
     return picked;

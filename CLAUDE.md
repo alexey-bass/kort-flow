@@ -28,9 +28,9 @@ manifest.json                   — PWA manifest (name, icons, theme)
 service-worker.js               — Offline-first cache for app shell
 hooks/pre-commit                — Auto-stamps version, cache-bust params, SW version
 package.json                    — npm start script (python3 http.server)
-ALGO.md                         — Algorithm documentation with scoring weights and examples
+ALGO.md                         — Algorithm documentation with scoring weights, examples, quality criteria
 test/                           — Node.js tests (node:test runner), mocks in test/helpers.js
-scripts/                        — Screenshots (Playwright) and simulation scripts
+scripts/                        — Screenshots (Playwright), simulation, and validation scripts
 ```
 
 **Load order:** `FIREBASE_CONFIG` (inline in head) → Firebase SDK (CDN, defer) → `assets/js/i18n.js` (defer) → `assets/js/app.js` (defer) → service worker registration
@@ -54,7 +54,7 @@ npm start
 
 ### Before every commit:
 ```bash
-npm run validate   # runs syntax check + tests + lighthouse
+npm run validate   # runs syntax check + tests + simulation quality check + lighthouse
 ```
 
 ### Rules:
@@ -65,6 +65,7 @@ npm run validate   # runs syntax check + tests + lighthouse
 - `App.VERSION` and `?v=` cache-busting params are auto-stamped by the pre-commit hook — no manual update needed
 - Git hooks live in `hooks/` (tracked). After cloning, run: `git config core.hooksPath hooks`
 - Lighthouse scores must stay at 100 across all categories. `npm run validate` runs Lighthouse after tests.
+- Shuffle algorithm must pass quality criteria (see ALGO.md). `npm run validate` runs 10 simulations after tests.
 
 ### Long Player Names:
 - Player names are truncated with CSS `text-overflow: ellipsis` in player list (`.player-name`), board queue (`.bq-name`), board court cards (`.board-team > span`), and admin courts (`.team > span`)
@@ -80,19 +81,24 @@ npm run validate   # runs syntax check + tests + lighthouse
 ```bash
 npm test           # run all tests
 npm run check      # syntax check only
-npm run validate   # check + test + lighthouse
+npm run validate   # check + test + simulation quality + lighthouse
 ```
 
 Tests use Node.js built-in `node:test` runner (no npm dependencies). Test files are in `test/` directory. Browser APIs are mocked in `test/helpers.js`.
 
 ### Simulation:
 ```bash
-npm run simulation                                                    # defaults: 4 courts, 17 players, 2 late, 10 rounds, en
+npm run simulation                                                    # queue mode: 4 courts, 17 players, 2 late, 10 rounds, en
 npm run simulation -- --courts 2 --players 10 --late 1 --rounds 5     # custom params
 npm run simulation -- --lang pl                                       # Polish report
+npm run simulation:shuffle                                            # shuffle mode: 4 courts, 17 players, 2 late, 10 rounds
+npm run simulation:shuffle -- --courts 4 --players 17 --rounds 10 --lang pl --output report.html
+npm run simulation:validate                                           # run 10 shuffle simulations, check quality criteria
 ```
 
-Runs a full session simulation using the app's suggestion algorithm and generates an HTML report (`simulation-report.html`) with leaderboard, pair stats, match log, and games distribution. Supports `--lang pl|en` (default: en). Open in browser and print to PDF.
+Queue simulation generates `simulation-report.html`, shuffle generates `simulation-shuffle-report.html`. Both support `--lang pl|en`. Open in browser and print to PDF.
+
+`simulation:validate` runs 10 shuffle-mode simulations and checks algorithm quality criteria (see ALGO.md): no partner pair repeats, no frequent opponents, no group regrouping, fair games distribution, late player fairness. Included in `npm run validate`.
 
 ### Screenshots:
 ```bash
