@@ -1,6 +1,21 @@
 # Feature Ideas
 
-Inspired by similar apps: Qcourt, ShuttleFlow, QSENPAI, PickleQ, PB Play, Doubles Matchmaker, RoundRobinly, Shuttle-queue.
+Inspired by similar apps:
+
+- [Qcourt](https://play.google.com/store/apps/details?id=com.taforyou.qcourt) — badminton queue + fee splitting + skill rating
+- [ShuttleFlow](https://shuttleflow.ph/) — badminton queue management (Philippines)
+- [QSENPAI](https://qsenpai.app/) — badminton + pickleball queue, court utilization metrics
+- [PickleQ](https://pickleq.app/) — pickleball open play with skill-based matching
+- [PB Play](https://apps.apple.com/us/app/pb-play/id1455799642) — pickleball, exhaustive partner rotation
+- [Doubles Matchmaker](https://dmmksw.firebaseapp.com/) — multi-sport, TrueSkill rating, mixed/balanced draw
+- [RoundRobinly](https://roundrobinly.com/) — doubles schedule generator (Whist Cyclic algorithm)
+- [Shuttle-queue](https://github.com/ubongedem78/Shuttle-queue) — open-source, king-of-the-court rotation
+- [Queue Master](https://queuemaster.site/) — court queue management
+- [Queue Maestro](https://www.queuemaestrosports.app/) — multi-sport queue + payment tracking
+- [Court Queue](https://courtqueue.online/) — estimated wait time display
+- [Matcherfy](https://apps.apple.com/ph/app/matcherfy/id6535672675) — push notifications when it's your turn
+- [All-Play-All](https://www.allplayall.app/) — round robin + knockout for racquet sports
+- [PK Shiu's Double Queue System](https://www.pkshiu.com/pickleball-tips/double-queue-pickleball-rotation-system) — winners vs losers queue documentation
 
 ## Fee Splitting
 
