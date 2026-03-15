@@ -454,6 +454,233 @@ describe('App.Shuffle', function() {
     });
   });
 
+  describe('clearPending', function() {
+    it('should remove all pending and ready entries', function() {
+      createShuffleSession(8);
+      App.Shuffle.generate(4);
+      App.Shuffle.assignNextToCourt('c_1');
+      // 1 ready + 3 pending
+      App.Shuffle.clearPending();
+      assert.strictEqual(App.state.schedule.length, 0);
+    });
+
+    it('should keep playing and finished entries', function() {
+      createShuffleSession(8);
+      App.Shuffle.generate(4);
+      App.state.schedule[0].status = 'playing';
+      App.state.schedule[1].status = 'finished';
+      App.Shuffle.clearPending();
+      assert.strictEqual(App.state.schedule.length, 2);
+      assert.strictEqual(App.state.schedule[0].status, 'playing');
+      assert.strictEqual(App.state.schedule[1].status, 'finished');
+    });
+  });
+
+  describe('reorder', function() {
+    it('should move a pending game to a new position', function() {
+      createShuffleSession(8);
+      App.Shuffle.generate(4);
+      var gameId = App.state.schedule[3].id;
+      App.Shuffle.reorder(gameId, 0);
+      assert.strictEqual(App.state.schedule[0].id, gameId);
+    });
+
+    it('should not reorder non-pending games', function() {
+      createShuffleSession(8);
+      App.Shuffle.generate(2);
+      App.state.schedule[0].status = 'ready';
+      var readyId = App.state.schedule[0].id;
+      App.Shuffle.reorder(readyId, 1);
+      // Should still be at position 0
+      assert.strictEqual(App.state.schedule[0].id, readyId);
+    });
+  });
+
+  describe('generate with wishes', function() {
+    it('should place wished partners on the same team', function() {
+      var ids = createShuffleSession(4);
+      App.Players.setWish(ids[0], ids[1]);
+      App.Shuffle.generate(1);
+      var entry = App.state.schedule[0];
+      var sameTeam = (entry.teamA.indexOf(ids[0]) !== -1 && entry.teamA.indexOf(ids[1]) !== -1) ||
+                     (entry.teamB.indexOf(ids[0]) !== -1 && entry.teamB.indexOf(ids[1]) !== -1);
+      assert.ok(sameTeam, 'Wished partners should be on the same team');
+    });
+  });
+
+  describe('generate virtual history', function() {
+    it('should minimize partner repeats across many games', function() {
+      createShuffleSession(10);
+      App.Shuffle.generate(10);
+      // Count partner pairings
+      var pairs = {};
+      App.state.schedule.forEach(function(e) {
+        [e.teamA, e.teamB].forEach(function(t) {
+          if (t.length === 2) {
+            var k = [t[0], t[1]].sort().join('+');
+            pairs[k] = (pairs[k] || 0) + 1;
+          }
+        });
+      });
+      var maxRepeat = Math.max.apply(null, Object.values(pairs));
+      assert.ok(maxRepeat <= 2, 'No pair should be together more than 2 times in 10 games with 10 players, got ' + maxRepeat);
+    });
+  });
+
+  describe('generate with odd player counts', function() {
+    it('should handle 5 players and 2 courts', function() {
+      createShuffleSession(5);
+      var count = App.Shuffle.generate(2);
+      assert.strictEqual(count, 2);
+      // First game uses 4, second game gets remaining + reuse
+      App.state.schedule.forEach(function(e) {
+        var total = e.teamA.length + e.teamB.length;
+        assert.ok(total >= 2 && total <= 4, 'Game should have 2-4 players, got ' + total);
+      });
+    });
+
+    it('should handle 7 players across multiple games', function() {
+      createShuffleSession(7);
+      var count = App.Shuffle.generate(4);
+      assert.ok(count >= 2, 'Should generate at least 2 games with 7 players');
+      App.state.schedule.forEach(function(e) {
+        var all = e.teamA.concat(e.teamB);
+        var unique = new Set(all);
+        assert.strictEqual(unique.size, all.length, 'No duplicate players in a game');
+      });
+    });
+  });
+
+  describe('handlePlayerAbsent edge cases', function() {
+    it('should revert ready entry to pending when player leaves', function() {
+      var ids = createShuffleSession(4);
+      App.Shuffle.generate(1);
+      var entry = App.state.schedule[0];
+      entry.status = 'ready';
+      entry.courtId = 'c_1';
+
+      App.Shuffle.handlePlayerAbsent(entry.teamA[0]);
+      if (App.state.schedule.length > 0) {
+        var e = App.state.schedule[0];
+        assert.strictEqual(e.status, 'pending');
+        assert.strictEqual(e.courtId, null);
+      }
+    });
+
+    it('should not affect games without the absent player', function() {
+      var ids = createShuffleSession(8);
+      App.Shuffle.generate(2);
+      var entry1 = App.state.schedule[0];
+      var entry2 = App.state.schedule[1];
+      var pid = entry1.teamA[0];
+      // Ensure pid is not in entry2
+      var inEntry2 = entry2.teamA.concat(entry2.teamB).indexOf(pid) !== -1;
+      if (!inEntry2) {
+        var before = JSON.stringify(entry2);
+        App.Shuffle.handlePlayerAbsent(pid);
+        assert.strictEqual(JSON.stringify(App.state.schedule.find(function(e) { return e.id === entry2.id; })), before);
+      }
+    });
+
+    it('should handle player in multiple pending games', function() {
+      createShuffleSession(4);
+      App.Shuffle.generate(3); // with 4 players, same players reappear
+      var pid = App.state.schedule[0].teamA[0];
+      var affectedBefore = App.state.schedule.filter(function(e) {
+        return e.teamA.concat(e.teamB).indexOf(pid) !== -1;
+      }).length;
+
+      App.Shuffle.handlePlayerAbsent(pid);
+      var stillHas = App.state.schedule.filter(function(e) {
+        return (e.status === 'pending' || e.status === 'ready') &&
+               e.teamA.concat(e.teamB).indexOf(pid) !== -1;
+      });
+      assert.strictEqual(stillHas.length, 0, 'Absent player should be removed from all pending games');
+    });
+  });
+
+  describe('swapPlayer edge cases', function() {
+    it('should swap a player in teamB', function() {
+      var ids = createShuffleSession(6);
+      App.Shuffle.generate(1);
+      var entry = App.state.schedule[0];
+      var oldPid = entry.teamB[0];
+      var newPid = ids.find(function(id) {
+        return entry.teamA.indexOf(id) === -1 && entry.teamB.indexOf(id) === -1;
+      });
+      var result = App.Shuffle.swapPlayer(entry.id, oldPid, newPid);
+      assert.strictEqual(result, true);
+      assert.ok(entry.teamB.indexOf(newPid) !== -1);
+    });
+
+    it('should return false for player not in game', function() {
+      var ids = createShuffleSession(6);
+      App.Shuffle.generate(1);
+      var entry = App.state.schedule[0];
+      var notInGame = ids.find(function(id) {
+        return entry.teamA.indexOf(id) === -1 && entry.teamB.indexOf(id) === -1;
+      });
+      var result = App.Shuffle.swapPlayer(entry.id, notInGame, ids[0]);
+      assert.strictEqual(result, false);
+    });
+  });
+
+  describe('full lifecycle', function() {
+    it('should auto-assign next game after finishing', function() {
+      var ids = createShuffleSession(8);
+      App.Shuffle.generate(4);
+      App.Shuffle.autoAssignAll();
+
+      // Start and finish game on court 1
+      var ready1 = App.state.schedule.find(function(e) { return e.courtId === 'c_1' && e.status === 'ready'; });
+      App.Courts.startGame('c_1', ready1.teamA, ready1.teamB);
+      App.Courts.finishGame('c_1');
+
+      // Court should have a new ready game auto-assigned
+      var newReady = App.state.schedule.find(function(e) { return e.courtId === 'c_1' && e.status === 'ready'; });
+      assert.ok(newReady, 'Next game should be auto-assigned to freed court');
+      assert.notStrictEqual(newReady.id, ready1.id);
+    });
+
+    it('should track stats through full game cycle', function() {
+      var ids = createShuffleSession(4);
+      App.Shuffle.generate(1);
+      var entry = App.state.schedule[0];
+      entry.status = 'ready';
+      entry.courtId = 'c_1';
+
+      App.Courts.startGame('c_1', entry.teamA, entry.teamB);
+      App.Courts.finishGame('c_1', '21-15');
+
+      // Players should have updated stats
+      entry.teamA.concat(entry.teamB).forEach(function(pid) {
+        assert.strictEqual(App.state.players[pid].gamesPlayed, 1);
+      });
+      assert.strictEqual(entry.status, 'finished');
+    });
+  });
+
+  describe('batch boundaries', function() {
+    it('should allow players to appear in different batches', function() {
+      var ids = createShuffleSession(4);
+      // With only 4 players and 2 courts, batch size is 2
+      // First batch: 1 game of 4 players, second game can reuse after batch reset
+      App.Shuffle.generate(4);
+      // All 4 games should be generated (players reused across batches)
+      assert.strictEqual(App.state.schedule.length, 4);
+    });
+  });
+
+  describe('resetToday', function() {
+    it('should clear schedule on reset', function() {
+      createShuffleSession(6);
+      App.Shuffle.generate(4);
+      assert.ok(App.state.schedule.length > 0);
+      App.Session.resetToday();
+      assert.deepStrictEqual(App.state.schedule, []);
+    });
+  });
+
   describe('_ensureState migration', function() {
     it('should add mode and schedule to old state', function() {
       var state = App.Storage._ensureState({
