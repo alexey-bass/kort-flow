@@ -1703,6 +1703,14 @@ App.Shuffle = {
     }
   },
 
+  // Remove all pending and ready entries
+  clearPending: function() {
+    App.state.schedule = App.state.schedule.filter(function(e) {
+      return e.status !== 'pending' && e.status !== 'ready';
+    });
+    App.save();
+  },
+
   // Get schedule stats
   getStats: function() {
     var total = App.state.schedule.length;
@@ -2692,6 +2700,7 @@ App.UI = {
     html += '<button class="btn btn-primary btn-sm" data-action="schedule-generate">' + (schedule.length === 0 ? App.t('shuffleGenerate') : App.t('shuffleContinue')) + '</button>';
     if (hasPending) {
       html += '<button class="btn btn-warning btn-sm" data-action="schedule-reshuffle">' + App.t('shuffleReshuffle') + '</button>';
+      html += '<button class="btn btn-danger btn-sm" data-action="schedule-clear-pending">' + App.t('shuffleClearPending') + '</button>';
     }
     html += '</div>';
 
@@ -2765,6 +2774,12 @@ App.UI = {
             App.Shuffle.removeGame(gameId);
             App.UI.renderQueue();
           }
+          break;
+        case 'schedule-clear-pending':
+          App.UI.showConfirm(App.t('confirmClearPending'), function() {
+            App.Shuffle.clearPending();
+            App.UI.renderAll();
+          });
           break;
       }
     });
