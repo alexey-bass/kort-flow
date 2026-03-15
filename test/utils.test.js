@@ -98,10 +98,9 @@ describe('App.Utils', function() {
   });
 
   describe('getDeviceInfo', function() {
-    it('should return object with browser, os, screen, ts', function() {
+    it('should return object with ua, screen, ts', function() {
       var info = App.Utils.getDeviceInfo();
-      assert.strictEqual(typeof info.browser, 'string');
-      assert.strictEqual(typeof info.os, 'string');
+      assert.strictEqual(typeof info.ua, 'string');
       assert.strictEqual(typeof info.screen, 'string');
       assert.strictEqual(typeof info.ts, 'number');
       assert.ok(info.ts > 0);

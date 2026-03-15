@@ -72,27 +72,8 @@ App.Utils = {
 
   getDeviceInfo: function() {
     var ua = navigator.userAgent || '';
-    var browser = 'Unknown';
-    var os = 'Unknown';
-
-    // Detect browser with version
-    var m;
-    if ((m = ua.match(/Firefox\/([\d.]+)/))) browser = 'Firefox/' + m[1];
-    else if ((m = ua.match(/Edg\/([\d.]+)/))) browser = 'Edge/' + m[1];
-    else if ((m = ua.match(/OPR\/([\d.]+)/))) browser = 'Opera/' + m[1];
-    else if ((m = ua.match(/Chrome\/([\d.]+)/))) browser = 'Chrome/' + m[1];
-    else if ((m = ua.match(/Version\/([\d.]+).*Safari/))) browser = 'Safari/' + m[1];
-
-    // Detect OS
-    if (ua.indexOf('iPhone') !== -1 || ua.indexOf('iPad') !== -1) os = 'iOS';
-    else if (ua.indexOf('Android') !== -1) os = 'Android';
-    else if (ua.indexOf('Mac OS') !== -1) os = 'macOS';
-    else if (ua.indexOf('Windows') !== -1) os = 'Windows';
-    else if (ua.indexOf('Linux') !== -1) os = 'Linux';
-
     return {
-      browser: browser,
-      os: os,
+      ua: ua,
       screen: screen.width + 'x' + screen.height,
       ts: Date.now()
     };
@@ -4125,8 +4106,7 @@ App.UI = {
       if (ci) {
         var createdAt = ci.ts ? new Date(ci.ts).toLocaleString() : '—';
         creatorEl.innerHTML = '<table class="debug-table">' +
-          '<tr><td>' + App.t('debugCreatorBrowser') + '</td><td><strong>' + App.UI._esc(ci.browser || '—') + '</strong></td></tr>' +
-          '<tr><td>' + App.t('debugCreatorOS') + '</td><td><strong>' + App.UI._esc(ci.os || '—') + '</strong></td></tr>' +
+          '<tr><td>User-Agent</td><td><strong style="word-break:break-all">' + App.UI._esc(ci.ua || '—') + '</strong></td></tr>' +
           '<tr><td>' + App.t('debugCreatorScreen') + '</td><td><strong>' + App.UI._esc(ci.screen || '—') + '</strong></td></tr>' +
           '<tr><td>' + App.t('debugCreatorTime') + '</td><td><strong>' + createdAt + '</strong></td></tr>' +
           '</table>';

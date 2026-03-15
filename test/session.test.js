@@ -48,8 +48,7 @@ describe('App.Session', function() {
     it('should include creatorInfo with device details', function() {
       App.Session.create();
       assert.ok(App.state.creatorInfo);
-      assert.strictEqual(typeof App.state.creatorInfo.browser, 'string');
-      assert.strictEqual(typeof App.state.creatorInfo.os, 'string');
+      assert.strictEqual(typeof App.state.creatorInfo.ua, 'string');
       assert.strictEqual(typeof App.state.creatorInfo.screen, 'string');
       assert.strictEqual(typeof App.state.creatorInfo.ts, 'number');
     });
