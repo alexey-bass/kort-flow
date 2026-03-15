@@ -812,8 +812,8 @@ App.Courts = {
       // Update schedule entry status
       var schEntry = App.state.schedule.find(function(e) { return e.matchId === match.id; });
       if (schEntry) schEntry.status = 'finished';
-      // Auto-assign pending games to all free courts
-      App.Shuffle.autoAssignAll();
+      // Auto-assign next game to this court
+      App.Shuffle.assignNextToCourt(courtId);
     } else {
       // Queue mode: players go to end of queue
       App.Queue.addMultipleToEnd(allPlayers);
@@ -1693,57 +1693,18 @@ App.Shuffle = {
 
   // Assign pending games to all free courts
   autoAssignAll: function() {
+    var self = this;
     var freeCourts = Object.values(App.state.courts).filter(function(c) {
       return c.active && !c.occupied;
     });
-
-    // Courts that need a game assigned
-    var needAssign = freeCourts.filter(function(court) {
-      return !App.state.schedule.some(function(e) {
+    var assigned = 0;
+    freeCourts.forEach(function(court) {
+      var hasReady = App.state.schedule.some(function(e) {
         return e.courtId === court.id && (e.status === 'ready' || e.status === 'playing');
       });
+      if (hasReady) return;
+      if (self.assignNextToCourt(court.id)) assigned++;
     });
-    if (needAssign.length === 0) return 0;
-
-    // Only players currently playing (on court) are truly busy
-    var playingPids = {};
-    App.state.schedule.forEach(function(e) {
-      if (e.status === 'playing') {
-        e.teamA.concat(e.teamB).forEach(function(pid) { playingPids[pid] = true; });
-      }
-    });
-
-    // Also include players in ready games on courts NOT in needAssign
-    var needAssignIds = {};
-    needAssign.forEach(function(c) { needAssignIds[c.id] = true; });
-    App.state.schedule.forEach(function(e) {
-      if (e.status === 'ready' && !needAssignIds[e.courtId]) {
-        e.teamA.concat(e.teamB).forEach(function(pid) { playingPids[pid] = true; });
-      }
-    });
-
-    var pending = App.state.schedule.filter(function(e) { return e.status === 'pending'; });
-    var assigned = 0;
-    var usedPids = {};
-    Object.keys(playingPids).forEach(function(pid) { usedPids[pid] = true; });
-
-    // Assign games to courts, tracking all newly assigned players
-    needAssign.forEach(function(court) {
-      for (var i = 0; i < pending.length; i++) {
-        var entry = pending[i];
-        if (entry.status !== 'pending') continue;
-        var all = entry.teamA.concat(entry.teamB);
-        var allFree = all.every(function(pid) { return !usedPids[pid]; });
-        if (allFree) {
-          entry.status = 'ready';
-          entry.courtId = court.id;
-          all.forEach(function(pid) { usedPids[pid] = true; });
-          assigned++;
-          break;
-        }
-      }
-    });
-
     if (assigned > 0) App.save();
     return assigned;
   },
