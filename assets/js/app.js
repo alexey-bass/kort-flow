@@ -3666,7 +3666,47 @@ App.UI = {
         html += '<button class="btn btn-success" data-action="board-start-ready" data-court="' + court.id + '" data-schedule="' + readyEntry.id + '"' + (allReady ? '' : ' disabled') + '>' + App.t('startGame') + '</button>';
         html += '</div>';
       } else if (isShuffle) {
-        html += '<div class="court-empty">' + App.t('waitingForSchedule') + '</div>';
+        // Show next pending game so coach sees what's coming
+        var nextPending = App.state.schedule.find(function(e) { return e.status === 'pending'; });
+        if (nextPending) {
+          // Match assignNextToCourt logic: players in ready/playing entries are busy
+          var _busyPids = {};
+          App.state.schedule.forEach(function(e) {
+            if (e.status === 'ready' || e.status === 'playing') {
+              e.teamA.concat(e.teamB).forEach(function(pid) { _busyPids[pid] = true; });
+            }
+          });
+          var _allPids = nextPending.teamA.concat(nextPending.teamB);
+          var _busyCount = _allPids.filter(function(pid) { return _busyPids[pid] || App.Players.isOnCourt(pid); }).length;
+          html += '<div class="board-court-teams">';
+          html += '<div class="board-team board-team-a">';
+          nextPending.teamA.forEach(function(pid) {
+            var p = App.state.players[pid];
+            var busy = _busyPids[pid] || App.Players.isOnCourt(pid);
+            html += '<span' + (busy ? ' class="player-busy"' : '') + '><span class="board-player-num">#' + (p ? p.number : '?') + '</span> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+          });
+          html += '</div>';
+          html += '<div class="board-vs">vs</div>';
+          html += '<div class="board-team board-team-b">';
+          nextPending.teamB.forEach(function(pid) {
+            var p = App.state.players[pid];
+            var busy = _busyPids[pid] || App.Players.isOnCourt(pid);
+            html += '<span' + (busy ? ' class="player-busy"' : '') + '><span class="board-player-num">#' + (p ? p.number : '?') + '</span> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
+          });
+          html += '</div></div>';
+          if (_busyCount > 0) {
+            html += '<div style="text-align:center; font-size:12px; color:var(--warning); margin:6px 0;">' +
+              App.t('waitingForPlayers').replace('{n}', _busyCount) + '</div>';
+          } else {
+            html += '<div style="text-align:center; font-size:12px; color:var(--success); margin:6px 0;">' +
+              App.t('allPlayersReady') + '</div>';
+            html += '<div class="board-court-actions">';
+            html += '<button class="btn btn-success" data-action="board-start-pending" data-court="' + court.id + '" data-schedule="' + nextPending.id + '">' + App.t('startGame') + '</button>';
+            html += '</div>';
+          }
+        } else {
+          html += '<div class="court-empty">' + App.t('waitingForSchedule') + '</div>';
+        }
       } else {
         html += '<div class="court-empty">' + App.t('boardFree') + '</div>';
         html += '<div class="board-court-actions">';
@@ -3784,6 +3824,17 @@ App.UI = {
           var entry = App.state.schedule.find(function(e) { return e.id === scheduleId; });
           if (entry && App.Shuffle.arePlayersReady(scheduleId)) {
             App.Courts.startGame(courtId, entry.teamA, entry.teamB);
+            App.UI.renderAll();
+          }
+          break;
+        case 'board-start-pending':
+          // Start a pending game directly — assign to court first
+          var pendingId = btn.dataset.schedule;
+          var pendingEntry = App.state.schedule.find(function(e) { return e.id === pendingId; });
+          if (pendingEntry && pendingEntry.status === 'pending') {
+            pendingEntry.status = 'ready';
+            pendingEntry.courtId = courtId;
+            App.Courts.startGame(courtId, pendingEntry.teamA, pendingEntry.teamB);
             App.UI.renderAll();
           }
           break;
@@ -4504,8 +4555,53 @@ App.UI = {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   },
 
+  _seedSession: function(names, courtNumbers, lateIndices, mode) {
+    App.Session.create('', mode);
+    App.Session.initCourts(courtNumbers);
+    names.forEach(function(name, i) {
+      var id = App.Players.add(name);
+      if (lateIndices.indexOf(i) === -1) {
+        App.Players.markPresent(id);
+      }
+    });
+    App.save();
+    App.UI.renderAll();
+    App.i18n.apply();
+    App.UI.showToast(App.t('debugSeedDone'));
+  },
+
   _bindDebug: function() {
     var self = this;
+
+    var allNames = ['Ola', 'Kasia', 'Tomek', 'Bartek', 'Magda', 'Ania', 'Piotr', 'Zosia', 'Marek', 'Ewa', 'Kamil', 'Natalia', 'Dawid', 'Justyna', 'Łukasz', 'Marta', 'Jakub', 'Alicja', 'Rafał', 'Weronika'];
+
+    function pickNames(count) {
+      var shuffled = allNames.slice();
+      for (var i = shuffled.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+      }
+      return shuffled.slice(0, count);
+    }
+
+    document.getElementById('btnSeedQueue13').addEventListener('click', function() {
+      App.UI.showConfirm(App.t('debugSeedConfirm'), function() {
+        self._seedSession(pickNames(13), [1, 2, 3], [12], 'queue');
+      });
+    });
+
+    document.getElementById('btnSeedShuffle13').addEventListener('click', function() {
+      App.UI.showConfirm(App.t('debugSeedConfirm'), function() {
+        self._seedSession(pickNames(13), [1, 2, 3], [12], 'shuffle');
+      });
+    });
+
+    document.getElementById('btnSeedShuffle20').addEventListener('click', function() {
+      App.UI.showConfirm(App.t('debugSeedConfirm'), function() {
+        self._seedSession(pickNames(20), [1, 2, 3, 4, 5], [18, 19], 'shuffle');
+      });
+    });
+
     document.getElementById('btnClearStorage').addEventListener('click', function() {
       App.UI.showConfirm(App.t('debugConfirmClear'), function() {
         localStorage.clear();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Badmixton Flow</title>
   <meta name="description" content="Manage player queue and court assignments during amateur badminton 2x2 sessions. Track scores, auto-suggest teams, sync across devices.">
-  <meta name="version" content="v260315-1218">
+  <meta name="version" content="v260315-1309">
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
   <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon-16.png">
@@ -261,6 +261,14 @@
         <pre id="debugStateJson" class="debug-json"></pre>
       </div>
       <div class="section-block">
+        <h2 data-i18n="debugSeedData">Dane testowe</h2>
+        <div class="btn-row">
+          <button class="btn" id="btnSeedQueue13" data-i18n="debugSeedQueue13">Kolejka: 13 / 3</button>
+          <button class="btn" id="btnSeedShuffle13" data-i18n="debugSeedShuffle13">Shuffle: 13 / 3</button>
+          <button class="btn" id="btnSeedShuffle20" data-i18n="debugSeedShuffle20">Shuffle: 20 / 5</button>
+        </div>
+      </div>
+      <div class="section-block">
         <h2 data-i18n="debugActions"></h2>
         <div class="btn-row">
           <button class="btn btn-danger" id="btnClearStorage" data-i18n="debugClearStorage"></button>
@@ -281,8 +289,8 @@
   <!-- Firebase SDK (loaded from CDN) -->
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script defer src="assets/js/i18n.js?v=38"></script>
-  <script defer src="assets/js/app.js?v=66"></script>
+  <script defer src="assets/js/i18n.js?v=39"></script>
+  <script defer src="assets/js/app.js?v=67"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./service-worker.js');
