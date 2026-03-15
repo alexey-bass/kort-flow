@@ -60,11 +60,16 @@ function setupBrowserMocks() {
       return createMockElement({ tagName: tag, children: [] });
     },
     addEventListener: function() {},
+    documentElement: { lang: 'pl' },
     _clearElementCache: function() { elementCache = {}; }
   };
 
   global.window = {
-    location: { search: '', href: 'http://localhost:8080/' }
+    location: { search: '', href: 'http://localhost:8080/' },
+    open: function() {
+      var doc = { _html: '', write: function(h) { this._html += h; }, close: function() {} };
+      return { document: doc, focus: function() {}, print: function() {} };
+    }
   };
 
   global.screen = { width: 1024, height: 768 };

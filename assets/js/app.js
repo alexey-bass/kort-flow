@@ -2950,6 +2950,9 @@ App.UI = {
       html += '<button class="btn btn-warning btn-sm" data-action="schedule-reshuffle">' + App.t('shuffleReshuffle') + '</button>';
       html += '<button class="btn btn-danger btn-sm" data-action="schedule-clear-pending">' + App.t('shuffleClearPending') + '</button>';
     }
+    if (schedule.length > 0) {
+      html += '<button class="btn btn-secondary btn-sm" data-action="schedule-print">🖨 ' + App.t('printSchedule') + '</button>';
+    }
     html += '</div>';
 
     if (schedule.length === 0) {
@@ -3001,9 +3004,15 @@ App.UI = {
 
   _bindScheduleActions: function(container) {
     container.addEventListener('click', function(e) {
-      if (App.Lock.isLocked()) return;
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
+      // Print is read-only — allow when locked
+      if (btn.dataset.action === 'schedule-print') {
+        App.Analytics.track('schedule_print');
+        App.UI.printSchedule();
+        return;
+      }
+      if (App.Lock.isLocked()) return;
 
       switch (btn.dataset.action) {
         case 'schedule-generate':
@@ -5081,6 +5090,108 @@ App.UI = {
 
     this.showModal(html);
     App.Analytics.track('player_stats_view', { player_id: playerId });
+  },
+
+  // --- Print schedule ---
+  printSchedule: function() {
+    var state = App.state;
+    var schedule = state.schedule;
+    if (!schedule || schedule.length === 0) return;
+
+    var esc = this._esc;
+    var sessionName = state.name ? esc(state.name) : '';
+    var dateStr = App.Utils.formatDate(state.date || new Date());
+
+    // Player roster
+    var presentPlayers = Object.values(state.players)
+      .filter(function(p) { return p.present; })
+      .sort(function(a, b) { return a.number - b.number; });
+    var rosterItems = presentPlayers.map(function(p) {
+      return '#' + p.number + ' ' + esc(p.name);
+    });
+
+    // Game rows
+    var gameRows = '';
+    schedule.forEach(function(entry, idx) {
+      var teamANames = entry.teamA.map(function(pid) {
+        var p = state.players[pid];
+        return p ? ('#' + p.number + ' ' + esc(p.name)) : '?';
+      }).join(' + ');
+      var teamBNames = entry.teamB.map(function(pid) {
+        var p = state.players[pid];
+        return p ? ('#' + p.number + ' ' + esc(p.name)) : '?';
+      }).join(' + ');
+
+      var match = entry.matchId ? state.matches[entry.matchId] : null;
+      var courtCell = '';
+      var scoreCell = '';
+      var winnerCell = '';
+      if (match && match.status === 'finished') {
+        if (match.courtId && state.courts[match.courtId]) {
+          courtCell = esc(String(state.courts[match.courtId].displayNumber));
+        }
+        if (match.score) courtCell = courtCell || '', scoreCell = esc(match.score);
+        if (match.winner === 'teamA') winnerCell = teamANames;
+        else if (match.winner === 'teamB') winnerCell = teamBNames;
+        else if (match.winner === 'draw') winnerCell = '=';
+      }
+
+      gameRows += '<tr>' +
+        '<td style="text-align:center">' + (idx + 1) + '</td>' +
+        '<td>' + teamANames + '</td>' +
+        '<td style="text-align:center; color:#888">vs</td>' +
+        '<td>' + teamBNames + '</td>' +
+        '<td class="fill">' + courtCell + '</td>' +
+        '<td class="fill">' + scoreCell + '</td>' +
+        '<td class="fill">' + winnerCell + '</td>' +
+        '</tr>';
+    });
+
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<title>' + App.t('printTitle') + '</title>' +
+      '<style>' +
+      '* { margin:0; padding:0; box-sizing:border-box; }' +
+      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size:12px; padding:15mm; color:#222; }' +
+      'h1 { font-size:18px; margin-bottom:2px; }' +
+      '.date { color:#666; margin-bottom:12px; }' +
+      'h2 { font-size:14px; margin:12px 0 6px; }' +
+      '.roster { margin-bottom:12px; line-height:1.6; }' +
+      'table { width:100%; border-collapse:collapse; }' +
+      'th, td { border:1px solid #ccc; padding:4px 6px; font-size:12px; }' +
+      'th { background:#f5f5f5; font-weight:600; text-align:left; }' +
+      'td.fill { min-width:60px; }' +
+      'tr { break-inside:avoid; }' +
+      '.footer { margin-top:16px; font-size:10px; color:#999; }' +
+      '@media print { body { padding:0; } }' +
+      '@page { margin:15mm; size:A4 portrait; }' +
+      '</style></head><body>' +
+      '<h1>' + App.t('printTitle') + (sessionName ? ' — ' + sessionName : '') + '</h1>' +
+      '<div class="date">' + dateStr + '</div>' +
+      '<h2>' + App.t('printPlayerRoster') + '</h2>' +
+      '<div class="roster">' + rosterItems.join(', ') + '</div>' +
+      '<table><thead><tr>' +
+      '<th style="width:30px">#</th>' +
+      '<th>' + App.t('printGame') + ' A</th>' +
+      '<th style="width:24px"></th>' +
+      '<th>' + App.t('printGame') + ' B</th>' +
+      '<th>' + App.t('printCourt') + '</th>' +
+      '<th>' + App.t('printScore') + '</th>' +
+      '<th>' + App.t('printWinner') + '</th>' +
+      '</tr></thead><tbody>' +
+      gameRows +
+      '</tbody></table>' +
+      '<div class="footer">' + App.t('printTitle') + ' — ' + new Date().toLocaleString() + '</div>' +
+      '</body></html>';
+
+    var w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
+    } else {
+      App.UI.showToast('Popup blocked');
+    }
   },
 
   // --- Utilities ---
