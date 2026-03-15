@@ -2884,9 +2884,10 @@ App.UI = {
         });
         if (readyEntry) {
           var allReady = App.Shuffle.arePlayersReady(readyEntry.id);
+          var busyCount = readyEntry.teamA.concat(readyEntry.teamB).filter(function(pid) { return App.Players.isOnCourt(pid); }).length;
           html += App.UI._renderScheduleTeams(readyEntry);
           html += '<div style="font-size:12px; color:' + (allReady ? 'var(--success)' : 'var(--warning)') + '; margin:6px 0;">' +
-            (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers')) + '</div>';
+            (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers').replace('{n}', busyCount)) + '</div>';
           html += '<div class="court-actions">';
           html += '<button class="btn btn-success" data-action="start-ready" data-schedule="' + readyEntry.id + '"' + (allReady ? '' : ' disabled') + '>' + App.t('startGame') + '</button>';
           html += '</div>';
@@ -3394,8 +3395,9 @@ App.UI = {
           html += '<span' + (busy ? ' class="player-busy"' : '') + '><span class="board-player-num">#' + (p ? p.number : '?') + '</span> ' + (p ? App.UI._esc(p.name) : '?') + '</span>';
         });
         html += '</div></div>';
+        var busyCount = readyEntry.teamA.concat(readyEntry.teamB).filter(function(pid) { return App.Players.isOnCourt(pid); }).length;
         html += '<div style="text-align:center; font-size:12px; color:' + (allReady ? 'var(--success)' : 'var(--warning)') + '; margin:6px 0;">' +
-          (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers')) + '</div>';
+          (allReady ? App.t('allPlayersReady') : App.t('waitingForPlayers').replace('{n}', busyCount)) + '</div>';
         html += '<div class="board-court-actions">';
         html += '<button class="btn btn-success" data-action="board-start-ready" data-court="' + court.id + '" data-schedule="' + readyEntry.id + '"' + (allReady ? '' : ' disabled') + '>' + App.t('startGame') + '</button>';
         html += '</div>';
