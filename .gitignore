@@ -4,3 +4,4 @@ IMPROVEMENTS.md
 node_modules/
 reports/
 .lighthouseci/
+players-*.txt

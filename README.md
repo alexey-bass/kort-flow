@@ -8,6 +8,7 @@ Web app for managing player queues and court assignments during amateur badminto
 
 - **Player management** — add, remove, remove all, rename (with emoji support), renumber, mark present/absent, multiple partner wishes, emoji disambiguation for duplicate names
 - **Two session modes** — Queue mode (classic living queue) or Shuffle mode (batch-generate games, manual game creation, editable schedule with player removal, auto-assign to courts)
+- **Print schedule** — A4-friendly printout with player roster, game table grouped by rounds, bench/pause column, and empty columns for handwriting court assignments and scores; works when session is locked
 - **Living queue** — automatic arrival numbering, games played counter, live wait timer, auto-requeue after each game
 - **Flexible game formats** — 2v2 (default), 2v1, and 1v1 when not enough players for full doubles
 - **Smart suggestions** — algorithm picks next 2–4 players based on queue position, games balance, and wishes
