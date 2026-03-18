@@ -37,6 +37,7 @@
 sup {
   font-size: 0.65em;
   font-weight: 400;
+  margin-right: 1px;
 }
 
 body {
@@ -686,6 +687,7 @@ body.player-mode .admin-only {
   font-weight: 500;
   font-size: 15px;
   overflow: hidden;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -873,6 +875,7 @@ body.player-mode .admin-only {
 
 .team > span {
   overflow: hidden;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1114,6 +1117,7 @@ body.player-mode .admin-only {
 
 .board-team > span {
   overflow: hidden;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 16px;
@@ -1203,6 +1207,7 @@ body.player-mode .admin-only {
   flex: 1;
   font-weight: 500;
   overflow: hidden;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1486,9 +1491,11 @@ body.player-mode .admin-only {
   text-align: center;
 }
 
+.finish-team-a { background: #dbeafe; border-color: #bfdbfe; }
+.finish-team-b { background: #fef3c7; border-color: #fde68a; }
 .finish-winner-btn:hover,
 .finish-winner-btn:active {
-  background: var(--primary-light);
+  filter: brightness(0.95);
   border-color: var(--primary);
 }
 

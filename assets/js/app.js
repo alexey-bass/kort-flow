@@ -3137,7 +3137,8 @@ App.UI = {
 
       html += '<div class="court-card ' + (isOccupied ? 'occupied' : 'free') + '" data-court-id="' + court.id + '">';
       html += '<div class="court-header">';
-      html += '<h2>' + App.t('court') + court.displayNumber + '</h2>';
+      var finishedOnCourt = App.Courts.getGameNumber(court.id);
+      html += '<h2>' + App.t('court') + court.displayNumber + (finishedOnCourt ? '<sup>' + finishedOnCourt + '</sup>' : '') + '</h2>';
 
       if (isOccupied) {
         html += '<span class="court-timer" data-start="' + court.gameStartTime + '">' +
@@ -3633,14 +3634,10 @@ App.UI = {
       }
 
       var cardClass = isOccupied ? 'occupied' : (readyEntry ? 'ready' : 'free');
-      var gameNum = App.Courts.getGameNumber(court.id);
-      // Ready/playing game counts as the next one
-      if (isOccupied || readyEntry) gameNum++;
+      var finishedOnCourt = App.Courts.getGameNumber(court.id);
       html += '<div class="board-court-card ' + cardClass + '" data-court-id="' + court.id + '">';
       html += '<div class="board-court-header">';
-      html += '<h2>' + App.t('court') + court.displayNumber;
-      if (gameNum > 0) html += ' <span class="court-game-num">' + App.t('scheduleGame') + ' ' + gameNum + '</span>';
-      html += '</h2>';
+      html += '<h2>' + App.t('court') + court.displayNumber + (finishedOnCourt ? '<sup>' + finishedOnCourt + '</sup>' : '') + '</h2>';
       if (isOccupied) {
         html += '<span class="board-court-timer" data-start="' + court.gameStartTime + '">' +
           App.Utils.formatTime(Date.now() - court.gameStartTime) + '</span>';
@@ -4205,7 +4202,7 @@ App.UI = {
         highlights.push({
           icon: '🔥',
           label: App.t('hlWinStreak'),
-          value: esc(App.state.players[bestStreakPid].name) + ' (' + bestStreak + ')'
+          value: pname(App.state.players[bestStreakPid]) + ' (' + bestStreak + ')'
         });
       }
     }
@@ -4255,7 +4252,7 @@ App.UI = {
       highlights.push({
         icon: '⚔️',
         label: App.t('hlRivals'),
-        value: esc(App.state.players[rivalBest.a].name) + ' & ' + esc(App.state.players[rivalBest.b].name) + ' (' + rivalBest.count + ')'
+        value: pname(App.state.players[rivalBest.a]) + ' & ' + pname(App.state.players[rivalBest.b]) + ' (' + rivalBest.count + ')'
       });
     }
 
@@ -4515,11 +4512,11 @@ App.UI = {
 
     // Winner declaration buttons
     html += '<div class="finish-winner-row">';
-    html += '<button class="btn finish-winner-btn" id="btnWinnerA">';
+    html += '<button class="btn finish-winner-btn finish-team-a" id="btnWinnerA">';
     html += '<span class="finish-winner-icon">\uD83C\uDFC6</span> ' + teamANames;
     html += '</button>';
     html += '<span class="finish-vs">vs</span>';
-    html += '<button class="btn finish-winner-btn" id="btnWinnerB">';
+    html += '<button class="btn finish-winner-btn finish-team-b" id="btnWinnerB">';
     html += '<span class="finish-winner-icon">\uD83C\uDFC6</span> ' + teamBNames;
     html += '</button>';
     html += '</div>';
