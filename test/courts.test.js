@@ -347,4 +347,36 @@ describe('App.Courts', function() {
       assert.strictEqual(App.Courts.getGameNumber('c_1'), 2);
     });
   });
+
+  describe('court name superscript (finished games count)', function() {
+    it('should return 0 for court with no finished games', function() {
+      App.Session.create();
+      App.Session.initCourts([1]);
+      assert.strictEqual(App.Courts.getGameNumber('c_1'), 0);
+    });
+
+    it('should increment after finishing a game', function() {
+      var ids = setupGameSession();
+      App.Courts.startGame('c_1', [ids[0], ids[1]], [ids[2], ids[3]]);
+      assert.strictEqual(App.Courts.getGameNumber('c_1'), 0, 'Should be 0 while game is playing');
+
+      App.Courts.finishGame('c_1', '21-15');
+      assert.strictEqual(App.Courts.getGameNumber('c_1'), 1, 'Should be 1 after finishing');
+    });
+
+    it('should count only finished games on the specific court', function() {
+      App.Session.create();
+      App.Session.initCourts([1, 2]);
+      var names = ['A','B','C','D','E','F','G','H'];
+      var ids = names.map(function(n) { var id = App.Players.add(n); App.Players.markPresent(id); return id; });
+
+      App.Courts.startGame('c_1', [ids[0], ids[1]], [ids[2], ids[3]]);
+      App.Courts.finishGame('c_1', '21-15');
+      App.Courts.startGame('c_2', [ids[4], ids[5]], [ids[6], ids[7]]);
+      App.Courts.finishGame('c_2', '21-15');
+
+      assert.strictEqual(App.Courts.getGameNumber('c_1'), 1);
+      assert.strictEqual(App.Courts.getGameNumber('c_2'), 1);
+    });
+  });
 });

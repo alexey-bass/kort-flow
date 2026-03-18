@@ -72,6 +72,8 @@ npm run validate   # runs syntax check + tests + simulation quality check + ligh
 - When `gamesPlayed` is 0, no superscript is shown
 - Use `App.UI._pname(player)` instead of `App.UI._esc(player.name)` for all player name rendering
 - Exception: HTML input `value` attributes use `_esc()` (HTML tags don't render in inputs)
+- Court names also show finished games count as superscript (e.g. `Kort 1<sup>3</sup>` = 3 games finished on court 1)
+- Finish modal buttons use team background colors (blue #dbeafe for team A, yellow #fef3c7 for team B)
 
 ### Long Player Names:
 - Player names are truncated with CSS `text-overflow: ellipsis` in player list (`.player-name`), board queue (`.bq-name`), board court cards (`.board-team > span`), and admin courts (`.team > span`)
