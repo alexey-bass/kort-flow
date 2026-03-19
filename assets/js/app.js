@@ -1854,6 +1854,31 @@ App.Shuffle = {
       else if (e.status === 'finished') finished++;
     });
     return { total: total, pending: pending, ready: ready, playing: playing, finished: finished };
+  },
+
+  getBenchCounts: function() {
+    var counts = {};
+    if (!App.state || App.state.mode !== 'shuffle' || !App.state.schedule || App.state.schedule.length === 0) return counts;
+    var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
+    var presentIds = Object.values(App.state.players).filter(function(p) { return p.present; }).map(function(p) { return p.id; });
+    var totalRounds = Math.ceil(App.state.schedule.length / courtCount);
+    for (var r = 0; r < totalRounds; r++) {
+      // Only count rounds where all games are finished
+      var allFinished = true;
+      var playingIds = {};
+      for (var g = r * courtCount; g < Math.min((r + 1) * courtCount, App.state.schedule.length); g++) {
+        if (App.state.schedule[g].status !== 'finished') { allFinished = false; break; }
+        App.state.schedule[g].teamA.forEach(function(pid) { playingIds[pid] = true; });
+        App.state.schedule[g].teamB.forEach(function(pid) { playingIds[pid] = true; });
+      }
+      if (!allFinished) continue;
+      presentIds.forEach(function(pid) {
+        if (!playingIds[pid]) {
+          counts[pid] = (counts[pid] || 0) + 1;
+        }
+      });
+    }
+    return counts;
   }
 };
 
@@ -2684,6 +2709,7 @@ App.UI = {
   renderPlayers: function() {
     var players = App.Players.getSorted();
     var html = '';
+    var benchCounts = App.Shuffle.getBenchCounts();
 
     players.forEach(function(p) {
       var status = App.Players.getStatus(p.id);
@@ -2731,7 +2757,9 @@ App.UI = {
           '<span class="player-name">' + App.UI._pname(p) + '</span>' +
           wishText +
         '</div>' +
-        '<span class="player-games">' + App.tGames(p.gamesPlayed) + '</span>' +
+        '<span class="player-games">' + App.tGames(p.gamesPlayed) +
+          (benchCounts[p.id] ? ' · ' + App.tBench(benchCounts[p.id]) : '') +
+        '</span>' +
         statusBadge +
         '<div class="player-actions">';
 
@@ -5302,8 +5330,7 @@ App.UI = {
 
   // --- Utilities ---
   _pname: function(p) {
-    var name = this._esc(p.name);
-    return p.gamesPlayed ? name + '<sup>' + p.gamesPlayed + '</sup>' : name;
+    return this._esc(p.name);
   },
 
   _esc: function(str) {

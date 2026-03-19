@@ -327,52 +327,152 @@ describe('Emoji name disambiguation', function() {
   });
 });
 
-describe('Player name with games superscript (_pname)', function() {
+describe('Player name (_pname)', function() {
   beforeEach(function() {
     localStorage.clear();
     App.Session.create();
     App.Session.initCourts([1]);
   });
 
-  it('should return escaped name without superscript when 0 games', function() {
+  it('should return escaped name', function() {
     var id = App.Players.add('Ola');
     var p = App.state.players[id];
     var result = App.UI._pname(p);
     assert.strictEqual(result, 'Ola');
-    assert.ok(!result.includes('<sup>'), 'Should not have superscript for 0 games');
+    assert.ok(!result.includes('<sup>'), 'Should not have superscript');
   });
 
-  it('should return name with superscript when games > 0', function() {
+  it('should not add superscript for games played', function() {
     var id = App.Players.add('Aleks');
     var p = App.state.players[id];
     p.gamesPlayed = 3;
     var result = App.UI._pname(p);
-    assert.strictEqual(result, 'Aleks<sup>3</sup>');
+    assert.strictEqual(result, 'Aleks');
   });
 
   it('should escape HTML in player name', function() {
     var id = App.Players.add('<script>');
     var p = App.state.players[id];
-    p.gamesPlayed = 1;
     var result = App.UI._pname(p);
     assert.ok(!result.includes('<script>'), 'Name should be escaped');
-    assert.ok(result.includes('<sup>1</sup>'), 'Should have superscript');
+  });
+});
+
+describe('Shuffle.getBenchCounts', function() {
+  beforeEach(function() {
+    localStorage.clear();
+    App.Session.create(null, 'shuffle');
+    App.Session.initCourts([1]);
   });
 
-  it('should handle emoji names', function() {
-    var id = App.Players.add('Ola 🐶');
-    var p = App.state.players[id];
-    p.gamesPlayed = 5;
-    var result = App.UI._pname(p);
-    assert.ok(result.includes('🐶'));
-    assert.ok(result.includes('<sup>5</sup>'));
+  it('should return empty object when not in shuffle mode', function() {
+    App.state.mode = 'queue';
+    var counts = App.Shuffle.getBenchCounts();
+    assert.deepStrictEqual(counts, {});
   });
 
-  it('should work with just player id', function() {
-    var id = App.Players.add('Marek');
-    App.state.players[id].gamesPlayed = 2;
-    // _pname should also accept a player object from state lookup
-    var result = App.UI._pname(App.state.players[id]);
-    assert.strictEqual(result, 'Marek<sup>2</sup>');
+  it('should return empty object when no schedule', function() {
+    App.state.schedule = [];
+    var counts = App.Shuffle.getBenchCounts();
+    assert.deepStrictEqual(counts, {});
+  });
+
+  it('should count bench rounds for players not in games', function() {
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's2', teamA: [id1], teamB: [id3], status: 'finished' }
+    ];
+    // 1 court, 2 rounds. Marek benched in round 1, Aleks benched in round 2
+    var counts = App.Shuffle.getBenchCounts();
+    assert.strictEqual(counts[id3], 1);
+    assert.strictEqual(counts[id2], 1);
+    assert.ok(!counts[id1], 'Player in all games should not be benched');
+  });
+
+  it('should count multiple bench rounds', function() {
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's2', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's3', teamA: [id1], teamB: [id3], status: 'finished' }
+    ];
+    // 1 court, 3 rounds. Marek benched in rounds 1 and 2
+    var counts = App.Shuffle.getBenchCounts();
+    assert.strictEqual(counts[id3], 2);
+    assert.strictEqual(counts[id2], 1);
+  });
+
+  it('should only count finished rounds', function() {
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's2', teamA: [id1], teamB: [id3], status: 'pending' }
+    ];
+    // Only round 1 is finished, Marek benched there. Round 2 pending — not counted
+    var counts = App.Shuffle.getBenchCounts();
+    assert.strictEqual(counts[id3], 1);
+    assert.ok(!counts[id2], 'Pending round should not count');
+  });
+
+  it('should handle multi-court rounds', function() {
+    App.Session.initCourts([1, 2]);
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    var id4 = App.Players.add('Kasia'); App.Players.markPresent(id4);
+    var id5 = App.Players.add('Tomek'); App.Players.markPresent(id5);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's2', teamA: [id3], teamB: [id4], status: 'finished' }
+    ];
+    // 2 courts, 1 round. Tomek benched
+    var counts = App.Shuffle.getBenchCounts();
+    assert.strictEqual(counts[id5], 1);
+    assert.ok(!counts[id1]);
+    assert.ok(!counts[id2]);
+  });
+
+  it('should not count when one game in round is not finished', function() {
+    App.Session.initCourts([1, 2]);
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    var id4 = App.Players.add('Kasia'); App.Players.markPresent(id4);
+    var id5 = App.Players.add('Tomek'); App.Players.markPresent(id5);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' },
+      { id: 's2', teamA: [id3], teamB: [id4], status: 'playing' }
+    ];
+    // 2 courts, round not fully finished
+    var counts = App.Shuffle.getBenchCounts();
+    assert.ok(!counts[id5], 'Partially finished round should not count');
+  });
+
+  it('should render bench count in players tab only when > 0', function() {
+    App.Session.initCourts([1]);
+    var id1 = App.Players.add('Ola'); App.Players.markPresent(id1);
+    var id2 = App.Players.add('Aleks'); App.Players.markPresent(id2);
+    var id3 = App.Players.add('Marek'); App.Players.markPresent(id3);
+    App.state.schedule = [
+      { id: 's1', teamA: [id1], teamB: [id2], status: 'finished' }
+    ];
+    var benchCounts = App.Shuffle.getBenchCounts();
+    assert.strictEqual(benchCounts[id3], 1, 'Marek should have 1 bench');
+    // Verify tBench produces correct text (language-independent check)
+    var benchText = App.tBench(1);
+    assert.ok(benchText.startsWith('1'), 'Bench text should start with count');
+    // Verify rendering logic: games text + bench separator
+    var gamesText = App.tGames(0) + (benchCounts[id3] ? ' · ' + App.tBench(benchCounts[id3]) : '');
+    assert.ok(gamesText.includes('·'), 'Should have separator');
+    assert.ok(gamesText.includes(benchText), 'Should include bench text');
+    // No bench for players who played
+    assert.ok(!benchCounts[id1], 'Playing players should not show bench');
   });
 });

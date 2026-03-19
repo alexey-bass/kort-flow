@@ -198,6 +198,7 @@ App.i18n = {
       toQueue: 'Do kolejki',
       fromQueue: 'Z kolejki',
       gamesOne: ' gra', gamesTwo: ' gry', gamesFive: ' gier',
+      benchOne: ' pauza', benchFew: ' pauzy', benchMany: ' pauz',
       waitNew: 'nowy',
       waitMin: ' min',
       court: 'Kort ',
@@ -563,6 +564,7 @@ App.i18n = {
       toQueue: 'To queue',
       fromQueue: 'From queue',
       gamesOne: ' game', gamesTwo: ' games', gamesFive: ' games',
+      benchOne: ' bench', benchFew: ' benches', benchMany: ' benches',
       waitNew: 'new',
       waitMin: ' min',
       court: 'Court ',
@@ -857,5 +859,14 @@ App.tGames = function(n) {
     few: App.i18n.t('gamesTwo'),
     many: App.i18n.t('gamesFive'),
     other: App.i18n.t('gamesFive')
+  });
+};
+
+App.tBench = function(n) {
+  return App.i18n.plural(n, {
+    one: App.i18n.t('benchOne'),
+    few: App.i18n.t('benchFew'),
+    many: App.i18n.t('benchMany'),
+    other: App.i18n.t('benchMany')
   });
 };
