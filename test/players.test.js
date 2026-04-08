@@ -329,6 +329,20 @@ describe('App.Players', function() {
       assert.strictEqual(App.UI._shortenName('Kowalski Jan Maria'), 'Jan Maria K');
     });
 
+    it('should handle hyphenated last names', function() {
+      assert.strictEqual(App.UI._shortenName('Kowalski-Nowak Anna'), 'Anna K-N');
+    });
+
+    it('should handle multi-word last name prefixes', function() {
+      assert.strictEqual(App.UI._shortenName('van den Berg Jan'), 'Jan vdB');
+      assert.strictEqual(App.UI._shortenName('von Braun Werner'), 'Werner vB');
+      assert.strictEqual(App.UI._shortenName('de la Cruz Maria'), 'Maria dlC');
+    });
+
+    it('should bail out if all parts are prefixes', function() {
+      assert.strictEqual(App.UI._shortenName('van de'), 'van de');
+    });
+
     it('should skip empty lines', function() {
       var text = 'Alice\n\n  \nBob\n';
       var names = text.split(/\n/).map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });

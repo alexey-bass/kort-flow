@@ -2798,12 +2798,38 @@ App.UI = {
     document.getElementById('playerList').innerHTML = html;
   },
 
+  _namePrefixes: ['van', 'von', 'de', 'del', 'den', 'der', 'di', 'du', 'el', 'la', 'le', 'lo', 'al', 'bin', 'ibn', 'mac', 'mc', 'o'],
+
   _shortenName: function(name) {
     var parts = name.split(/\s+/);
     if (parts.length < 2) return name;
-    var last = parts[0];
-    var first = parts.slice(1).join(' ');
-    return first + ' ' + last.charAt(0);
+
+    // Consume leading lowercase prefixes + main last name word
+    var lastParts = [];
+    var i = 0;
+    // Collect lowercase prefixes (van, de, von, ...)
+    while (i < parts.length - 1 && this._namePrefixes.indexOf(parts[i].toLowerCase()) !== -1) {
+      lastParts.push(parts[i]);
+      i++;
+    }
+    // Next word is the main last name
+    if (i < parts.length) {
+      lastParts.push(parts[i]);
+      i++;
+    }
+    // Bail out if no first name remains
+    if (i >= parts.length) return name;
+
+    var first = parts.slice(i).join(' ');
+    // Build initials: prefixes lowercase, main last name uppercase, hyphenated split
+    var prefixes = this._namePrefixes;
+    var initials = lastParts.map(function(p, idx) {
+      var letter = p.split('-').map(function(h) { return h.charAt(0); }).join('-');
+      return (idx < lastParts.length - 1 && prefixes.indexOf(p.toLowerCase()) !== -1)
+        ? letter.toLowerCase() : letter.toUpperCase();
+    }).join('');
+
+    return first + ' ' + initials;
   },
 
   _showBulkAddDialog: function() {
