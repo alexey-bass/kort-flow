@@ -1470,6 +1470,14 @@ body.player-mode .admin-only {
 }
 
 /* --- Finish confirm --- */
+/* Widen the finish modal to fit long team names on a single line.
+   `width: max-content` lets it grow as wide as its intrinsic content,
+   capped at the viewport width (minus 32px overlay padding). */
+.modal:has(.finish-winner-row) {
+  max-width: calc(100vw - 32px);
+  width: max-content;
+}
+
 .finish-winner-row {
   display: flex;
   align-items: center;
@@ -1480,9 +1488,10 @@ body.player-mode .admin-only {
 
 .finish-winner-btn {
   flex: 1;
-  padding: 14px 12px;
+  padding: 14px 18px;
   font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
   background: var(--bg-secondary);
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1895,10 +1904,27 @@ tr.results-gold .results-name { color: #b8860b; }
 }
 .board-layout.shuffle-layout .board-courts {
   flex: none;
+  /* Center court columns within the board-layout regardless of court count */
+  justify-content: center;
 }
 .board-layout.shuffle-layout .board-queue {
   flex: none;
   min-width: 0;
+}
+
+/* Break out of .content's 1200px cap so courts grid always stays centered on
+   the viewport, even with 5 courts that would otherwise overflow. Applied on
+   screens ≥ 1024px (where the fixed court columns kick in). */
+@media (min-width: 1024px) {
+  .board-layout.shuffle-layout {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 16px;
+    padding-right: 16px;
+    box-sizing: border-box;
+  }
 }
 
 /* Upcoming heading inside courts grid — spans all columns */

@@ -4288,8 +4288,14 @@ App.UI = {
     var boardCourtsEl = document.getElementById('boardCourts');
     boardCourtsEl.innerHTML = html;
     boardCourtsEl.style.gridTemplateColumns = '';
+    // Each court gets a flex range: at least 220px, at most 480px (enough to
+    // avoid truncating typical full names on wide screens). Grid columns grow
+    // to fill the available width within those bounds, so with 5 courts the
+    // free horizontal space is absorbed by the cards instead of the margins.
+    // With 1 court, the cap of 480px prevents absurd stretching. The
+    // shuffle-layout break-out CSS lets the grid exceed .content's 1200px cap.
     if (courts.length > 0 && window.matchMedia('(min-width: 1024px)').matches) {
-      boardCourtsEl.style.gridTemplateColumns = 'repeat(' + courts.length + ', 1fr)';
+      boardCourtsEl.style.gridTemplateColumns = 'repeat(' + courts.length + ', minmax(220px, 480px))';
     }
 
     // Sidebar: Queue or Upcoming
