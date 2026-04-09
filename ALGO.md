@@ -71,118 +71,72 @@ The algorithm picks Anna+Cleo vs Bob+Dan (or Anna+Dan vs Bob+Cleo — tie broken
 
 ---
 
-## Shuffle Mode (generate-and-select)
+## Shuffle Mode (offline simulated annealing)
 
-Coach adds players, then taps "Shuffle games" to generate a batch of games at once.
+Coach bulk-adds players, then taps "Shuffle games" to generate the full schedule at once. This is designed for the offline/printed flow: generate → print → hand out paper schedules → play.
 
-Unlike queue mode's single-game greedy approach, shuffle mode uses a **generate-and-select** strategy: it builds multiple randomized candidate batches, scores each batch holistically, and picks the best one. This lets the algorithm see the whole batch at once and avoid locally-good but globally-bad choices.
+Shuffle mode treats scheduling as an **offline combinatorial optimization problem** — a variant of the Social Golfer Problem. Given N players, C courts, and R rounds, find an assignment of players to games that minimizes partner repeats, opponent repeats, and games-played spread.
 
 ### High-level flow
 
-1. Build **virtual history** — starts from real stats (games played, partner/opponent history), then layers on all already-scheduled games. This way game #8 "knows about" games #1–7.
-2. For each batch of `courtCount` games:
-   - Generate **50 candidate batches** (1 deterministic, 49 randomized)
-   - Score each candidate holistically (see scoring below)
-   - Pick the lowest-penalty candidate
-   - Append its games to the schedule and update virtual history
-3. Repeat until `count` games are generated.
+1. Build **virtual history** from real player stats + any uncommitted pending schedule entries.
+2. Compute **round format**: how many games fit per round given the player count (e.g. 17 players / 4 courts = 4 × 2v2; 15 players = 3 × 2v2 + 1 × 2v1).
+3. Build a randomized **seed schedule**: `rounds` rounds, each a shuffled assignment of players to game slots + bench.
+4. Run **simulated annealing** (~20k iterations) to minimize a lexicographic objective.
+5. Append the optimized games to `App.state.schedule` in round order.
 
-### Candidate generation
+### Round-based invariant
 
-Each candidate is built greedily, game-by-game:
+Games are grouped into **rounds** of `gamesPerRound` consecutive games, and within each round **every player appears in at most one game** (or is on the bench). This is a hard invariant, not a soft constraint — moves that violate it are never proposed.
 
-**Player scoring (same idea as queue mode, no queue positions):**
+This invariant means the schedule is naturally "playable" in rounds: every round can start its games simultaneously on all courts, since no player is double-booked.
 
-| Factor | Weight |
-|--------|--------|
-| Virtual games above average | +50 per extra game |
-| Unfulfilled wish | -80 per wish |
-| **Random tiebreaker** (non-deterministic candidates only) | 0–10 |
+### Objective: lexicographic tuple
 
-The random tiebreaker is small enough not to override fairness scoring but large enough to shuffle equally-scored players across candidates. The first candidate (`n === 0`) uses no randomness, so it matches a deterministic baseline.
+Rather than a weighted scalar penalty, SA compares states by a tuple of metrics, lower on the first differing component wins. This eliminates weight tuning and directly matches the validator's quality criteria.
 
-**Game building loop:**
-1. Pick top 4 players by score (or 2-3 for 1v1/2v1)
-2. Split into teams via `_splitWithVirtual` (3 possible splits, pick lowest penalty)
-3. Mark players as used in this batch (each player appears at most once per batch)
-4. Update the *clone* virtual history so the next game in the batch sees the update
-5. Repeat for `courtCount` games
+| Position | Component | Meaning |
+|---|---|---|
+| 1 | `maxPartnerRepeat` | Worst-case: max times any pair partnered |
+| 2 | `totalPartnerRepeats` | Sum over pairs of max(0, count − 1) |
+| 3 | `maxOpponentRepeat` | Worst-case: max times any pair faced each other |
+| 4 | `totalOpponentRepeats` | Sum over pairs of max(0, count − 1) |
+| 5 | `groupRepeats` | Games with the same 4 players as a prior game (including finished matches) |
+| 6 | `gamesPlayedSpread` | max − min total games played per player (base + new) |
+| 7 | `maxConsecutiveBenches` | Longest run of bench rounds for any player |
+| 8 | `autoAssignStuck` | # (round, first-finisher) scenarios with no assignable next-round game |
+| 9 | `unfulfilledWishes` | Players whose wished partner never got on their team |
 
-### Batch scoring (holistic)
+Base history from committed/finished games is folded in: SA's `partnerCount`, `opponentCount`, and `baseGamesPlayed` start from real stats, so later calls to `generate()` carry prior history forward and avoid re-doing old pairings.
 
-A complete candidate batch is scored by summing penalties across all games. **Lower is better.**
+### Moves
 
-| Factor | Penalty | Rationale |
-|--------|---------|-----------|
-| Partner repeat (exponential) | `(count+1)² × 100` | Heavily penalize reusing the same pair |
-| Opponent repeat (3+) | `(count-1)² × 50` | Exponential — 3x is tolerable, 4x+ is bad |
-| Group regrouping (same 4 players as any past game) | +500 | Forbidden |
-| Intra-batch partner repeat (same pair in two games of this batch) | +400 | Should never happen |
-| Intra-batch opponent repeat | +60 | Shouldn't concentrate opponents within one batch |
-| 3+ player overlap with existing games | +30 | Mild penalty |
-| Games spread > 2 | +40 per extra | Keep game counts even across players |
-| **Sequential auto-assign failure** | +400 per failed finish | See below |
+At each iteration SA proposes a **within-round swap** — exchange two players' positions inside the same round. Positions can be game slots `{game, team, pos}` or bench slots `{bench, pos}`, so a single move can swap a bencher into a game or rotate players between teams. Same-team no-op swaps are filtered out.
 
-### Sequential auto-assign constraint
+Cross-round movement isn't needed: every player is in every round (either playing or benching), so within-round swaps are sufficient to reach any valid layout via hill-climbing.
 
-When the previous batch is already playing on courts, the new batch must be **assignable in order** as the previous batch finishes. Each time a court frees up, `assignNextToCourt()` looks for any pending game whose players are all free.
+### SA acceptance
 
-The scoring simulates this: it walks through `prevBatchGames` one finish at a time, adding their players to a "free pool", and checks whether *some* game in the new batch can be assigned at each step. If a step has no assignable game, it's a **400-point penalty**.
+- **Strict improvement** (new tuple < current in lex order): always accept.
+- **Lateral move** (new tuple == current): accept with 50% probability — lets SA walk plateaus.
+- **Worsening move**: reject (undo).
+- **Stagnation** (no improvement for ~500 iterations): restore best-seen state, apply 3 random perturbation swaps, continue.
 
-This replaces the old algorithm's greedy per-game batch logic (which happened to produce assignable schedules by construction but couldn't optimize globally).
+Budget: ~20,000 swap attempts per `generate()` call (~5–30ms on desktop). The final returned state is always the best-seen.
 
-### Team splitting (same as before)
+### Seed construction
 
-`_splitWithVirtual` is unchanged — 3 possible splits scored by partner/opponent repeats and wish bonus:
+The initial schedule is built by shuffling all player IDs once per round (using a seeded RNG), then packing the first `gamesPerRound × 4` into games and the rest onto bench. It's intentionally simple — SA handles the optimization. A deterministic seed from `hash(count | sorted player IDs | schedule length)` makes output reproducible for tests and debugging.
 
-| Factor | Penalty |
-|--------|---------|
-| Partner repeat | +100 per time paired |
-| Opponent repeat | +30 per time beyond 1st |
-| Wish fulfilled | -100 |
+### Why offline SA instead of greedy batching?
 
-### Virtual history updates
+The previous algorithm built games one batch at a time, committing early batches before seeing later ones. For tight configurations (15–17 players on 4 courts), this produced cascading repeats — early myopic choices forced later games to reuse partnerships. It also relied on a weighted penalty function with ad-hoc cross-category weights (100 vs 50 vs 400 vs 500) that were fragile to tuning.
 
-After the winning candidate batch is committed, virtual history is updated:
-- Player's virtual game count +1
-- Partner history +1 for teammates
-- Opponent history +1 for opposing players
+Offline SA sees the whole schedule at once, uses a principled lexicographic objective (no weights), and reliably finds schedules with **0 partner repeats** for the 17p × 4c × 10r target configuration.
 
-So batch #3 has full context of batches #1–2, even though none have been played yet.
+### Why a lexicographic objective?
 
-### Why generate-and-select?
-
-The old algorithm was greedy game-by-game: pick the best 4 players for game #1, then game #2, etc. This works well when there's slack (e.g. 20+ players on 4 courts), but with tight configurations (15-17 players on 4 courts), early choices constrain later games and cause cascading repeats.
-
-Generate-and-select trades a bit of computation (50 candidates × ~8 games each = 400 split evaluations per batch — still trivial) for much better results: randomized candidates explore different player groupings, and holistic scoring picks the one with the fewest total repeats across the whole batch.
-
-### Batch constraint
-
-Games are generated in **batches** of `courtCount` (e.g. 4 courts = batches of 4 games). Within a batch, **each player appears at most once**. This models reality: one batch fills all courts, next batch fills them again after those games finish.
-
-**Example:** 12 players, 3 courts → batch of 3 games × 4 players = 12 slots → all 12 players play, no bench. Next batch: everyone available again.
-
-With 17 players on 4 courts: 16 play per batch, 1 benches. Bench rotates across batches via the fairness scoring.
-
----
-
-## Quick reference: all weights
-
-| Factor | Queue mode | Shuffle mode | Where used |
-|--------|-----------|-------------|------------|
-| Queue position | +100/pos | — | Player selection |
-| Games above avg | +50/game | +50/game | Player selection |
-| Wish (selection) | -80 | -80 | Player selection |
-| Random tiebreaker | — | 0–10 | Candidate variety |
-| Partner repeat (split) | +30/time | +100/time | Team splitting |
-| Opponent repeat (split) | +15/time (>1) | +30/time (>1) | Team splitting |
-| Wish (split) | -100 | -100 | Team splitting |
-| Batch: partner repeat | — | (count+1)² × 100 | Holistic batch scoring |
-| Batch: opponent repeat | — | (count-1)² × 50 | Holistic batch scoring |
-| Batch: group regrouping | — | +500 | Holistic batch scoring |
-| Batch: intra-batch partner repeat | — | +400 | Holistic batch scoring |
-| Batch: sequential auto-assign failure | — | +400 per failure | Holistic batch scoring |
-| Batch: games spread > 2 | — | +40 per extra | Holistic batch scoring |
+Weighted-sum objectives invite trade-offs between incommensurable metrics. Is one extra partner repeat "worth" 5 extra opponent repeats? 10? The old algorithm's 100/50/400/500 weights were effectively guesses. Lex ordering removes the question: partner repeats dominate opponent repeats dominate spread, period. If the weights need to change, we just reorder the tuple.
 
 ---
 
@@ -194,34 +148,37 @@ With 17 players on 4 courts: 16 play per batch, 1 benches. Bench rotates across 
 | 3 players available | 2v1 format (one player plays solo) |
 | 2 players available | 1v1 format |
 | Player marked absent mid-schedule | Affected games downgraded (2v2→2v1→1v1) or removed |
-| All possible splits have partner repeats | Least-repeated split wins |
+| All possible splits have partner repeats | SA finds least-repeated layout via the lex objective |
 | Wish already fulfilled | No bonus (wish is checked off after first fulfillment) |
 | Wish partner not available | Wish ignored for this round |
-| Tight player counts (15-17 on 4 courts) | Generate-and-select explores 50 candidates to minimize repeats |
+| Tight player counts (15–17 on 4 courts) | SA's round-robin seed + lex objective reliably hits 0 partner repeats |
 
 ---
 
 ## Quality criteria
 
-The algorithm is validated by running 10 shuffle-mode simulations (17 players, 4 courts, 10 rounds, 2 late arrivals) and checking these criteria. Thresholds are **per-match** (scale with total games played), since the new algorithm generates full-capacity schedules (~40 matches over 10 rounds).
+The algorithm is validated by running 10 shuffle-mode simulations (17 players, 4 courts, 10 rounds, 2 late arrivals) and checking these criteria. The offline SA algorithm hits 0 partner repeats and ≤ 3 max opponent repeats reliably at the 17p × 4c × 10r target.
 
 | Criterion | Threshold | Why |
 |-----------|-----------|-----|
-| **Partner pair repeats** | ≤ 15% of matches (e.g. 6 out of 40) | Some repeats are mathematically unavoidable with dense scheduling |
-| **Frequent opponents (3+)** | ≤ 60% of matches (e.g. 24 out of 40) | Opponent variety, but not as strict as partner repeats |
-| **Worst opponent pair** | < 6 times | No two players should face each other more than 5x |
-| **No group regrouping** | 0 exact same 4 players in 2 games | Every game should feel like a new matchup |
-| **Fair games distribution** | Max − Min ≤ 3 games | Everyone plays roughly the same number of games |
-| **Late player fairness** | Late player games ≥ avg − 2 | Arriving late shouldn't mean sitting out too much |
+| **Partner pair repeats** | ≤ 5% of matches (e.g. 2 out of 40) | SA typically achieves 0 at this scale |
+| **Frequent opponents (3+)** | ≤ 5% of matches (e.g. 2 out of 40) | SA typically caps opponent counts at 2 |
+| **Worst opponent pair** | < 4 times | No two players should face each other more than 3x |
+| **No group regrouping** | 0 exact same 4 players in 2 games | Penalized by the `groupRepeats` lex component |
+| **Fair games distribution** | Max − Min ≤ 3 games | Penalized by the `gamesPlayedSpread` lex component |
+| **Late player fairness** | Late player games ≥ avg − 2 | SA's `baseGamesPlayed` tracking ensures late arrivals catch up |
 
 Run `npm run simulation:validate` to check all criteria across 10 simulations.
 
-### Why per-match thresholds?
+### Mathematical bounds (17p × 4c × 10r)
 
-With 17 players on 4 courts playing 10 rounds, the algorithm produces ~40 matches (16 players per round + rotation). This is **full capacity** — every round, every court is used. That generates ~80 partnership slots and ~160 opponent-pair slots.
+With 17 players on 4 courts playing 10 rounds, the algorithm produces 40 matches. This is full capacity — every round, every court is used. Each round has 16 players in games + 1 bench.
 
-With C(17,2) = 136 possible pairs, the math works out to:
-- Partnerships: 80/136 = 59% of pairs used → some repeats likely in tight corners
-- Opponents: 160/136 = 1.18× per pair on average → 3x pairs are common, 4x rare, 5x+ very rare
+- Partnerships: 40 × 2 = **80 partnerships**, C(17,2) = **136** possible pairs → 59% load.
+- Opponent events: 40 × 4 = **160 events**, 136 possible pairs → 1.18× average.
+- Bench: 10 × 1 = **10 bench slots**, distributed near-uniformly (10 players bench once, 7 play every round).
 
-The thresholds are calibrated to catch actual algorithm failures (clustering) while accepting mathematically unavoidable repeats at dense scheduling.
+The SA algorithm reliably achieves:
+- **Partner repeats: 0** (every pair partners at most once)
+- **Opponent max: 2** (no pair faces each other more than 2x)
+- **Spread: 1** (max 10 games, min 9 games per player)

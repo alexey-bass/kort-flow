@@ -1334,8 +1334,10 @@ App.Shuffle = {
     return App.state && App.state.mode === 'shuffle';
   },
 
-  // Generate `count` games using generate-and-select approach:
-  // build multiple randomized candidate batches, score holistically, pick best.
+  // Generate `count` games using offline simulated annealing.
+  // Builds a randomized round-based seed schedule, then runs stochastic
+  // hill-climbing with lexicographic objective to minimize partner/opponent
+  // repeats, bench spread, and max consecutive benches. See ALGO.md.
   generate: function(count) {
     var present = App.Players.getPresent();
     if (present.length < 2) {
@@ -1344,47 +1346,59 @@ App.Shuffle = {
     }
 
     var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
-    var hist = this._buildVirtualHistory(present);
-    var vGames = hist.vGames;
-    var vPartner = hist.vPartner;
-    var vOpponent = hist.vOpponent;
+    var gameSizes = this._computeRoundFormat(present.length, courtCount);
+    if (gameSizes.length === 0) return 0;
 
-    // Collect existing game groups for regrouping check
-    var existingGroups = [];
+    var gamesPerRound = gameSizes.length;
+    var rounds = Math.ceil(count / gamesPerRound);
+
+    // Base history from real player stats + non-finished schedule entries.
+    var hist = this._buildVirtualHistory(present);
+
+    // Collect groups of 4 that have already played together (finished matches
+    // + pending/ready schedule entries). SA penalizes re-grouping these.
+    var baseGroups = {};
     App.Matches.getFinished().forEach(function(m) {
-      existingGroups.push(m.teamA.concat(m.teamB).slice().sort().join(','));
+      var all = m.teamA.concat(m.teamB);
+      if (all.length === 4) baseGroups[all.slice().sort().join(',')] = true;
     });
     App.state.schedule.forEach(function(e) {
-      existingGroups.push(e.teamA.concat(e.teamB).slice().sort().join(','));
+      var all = e.teamA.concat(e.teamB);
+      if (all.length === 4) baseGroups[all.slice().sort().join(',')] = true;
     });
 
+    // Deterministic RNG: same inputs → same schedule (tests & reproducibility).
+    var seedVal = this._computeSeed(count, present);
+    var rng = this._seededRandom(seedVal);
+
+    // Build randomized round-based seed schedule, then optimize via SA.
+    var seedData = this._seedSchedule(present, gameSizes, rounds, rng);
+    var state = this._initSAState(seedData, hist.vPartner, hist.vOpponent, present, gameSizes, rounds);
+    state.baseGroups = baseGroups;
+    // Starting games-played (real + pre-scheduled) so SA balances globally,
+    // not just within this generate() call. Critical for late arrivals.
+    state.baseGamesPlayed = hist.vGames;
+
+    var iterations = Math.max(2000, Math.min(20000, gamesPerRound * rounds * 400));
+    this._runSA(state, rng, iterations);
+
+    // Commit games to schedule, truncating to exactly `count`.
     var generated = 0;
-
-    while (generated < count) {
-      var gamesInBatch = Math.min(courtCount, count - generated);
-      var best = this._generateCandidateBatch(present, gamesInBatch, vGames, vPartner, vOpponent, existingGroups);
-      if (best.length === 0) break;
-
-      for (var gi = 0; gi < best.length; gi++) {
-        var game = best[gi];
-        var entry = {
-          id: App.Utils.generateId('sg'),
-          teamA: game.teamA,
-          teamB: game.teamB,
-          status: 'pending',
-          courtId: null,
-          matchId: null
-        };
-        App.state.schedule.push(entry);
-        generated++;
-
-        var allPicked = game.teamA.concat(game.teamB);
-        allPicked.forEach(function(pid) {
-          if (vGames[pid] !== undefined) vGames[pid]++;
-        });
-        this._updateVirtualPairs(game.teamA, game.teamB, vPartner, vOpponent);
-        existingGroups.push(allPicked.slice().sort().join(','));
-      }
+    for (var gi = 0; gi < state.games.length && generated < count; gi++) {
+      var g = state.games[gi];
+      var cleanA = g.teamA.filter(function(x) { return x != null; });
+      var cleanB = g.teamB.filter(function(x) { return x != null; });
+      if (cleanA.length + cleanB.length < 2) continue;
+      var entry = {
+        id: App.Utils.generateId('sg'),
+        teamA: cleanA,
+        teamB: cleanB,
+        status: 'pending',
+        courtId: null,
+        matchId: null
+      };
+      App.state.schedule.push(entry);
+      generated++;
     }
 
     if (generated > 0) {
@@ -1394,7 +1408,8 @@ App.Shuffle = {
     return generated;
   },
 
-  // Build virtual history from real player stats + non-finished schedule entries
+  // Build virtual history from real player stats + non-finished schedule entries.
+  // Used as the base partner/opponent counts for the SA objective.
   _buildVirtualHistory: function(present) {
     var vGames = {};
     var vPartner = {};
@@ -1435,292 +1450,525 @@ App.Shuffle = {
     return { vGames: vGames, vPartner: vPartner, vOpponent: vOpponent };
   },
 
-  // Update virtual partner/opponent history for one game
-  _updateVirtualPairs: function(teamA, teamB, vPartner, vOpponent) {
-    [teamA, teamB].forEach(function(team) {
-      if (team.length === 2) {
-        var a = team[0], b2 = team[1];
-        if (vPartner[a]) vPartner[a][b2] = (vPartner[a][b2] || 0) + 1;
-        if (vPartner[b2]) vPartner[b2][a] = (vPartner[b2][a] || 0) + 1;
-      }
-    });
-    teamA.forEach(function(pa) {
-      teamB.forEach(function(pb) {
-        if (vOpponent[pa]) vOpponent[pa][pb] = (vOpponent[pa][pb] || 0) + 1;
-        if (vOpponent[pb]) vOpponent[pb][pa] = (vOpponent[pb][pa] || 0) + 1;
-      });
-    });
+  // Decide how many games fit per round and each game's size (player count).
+  // Matches the old greedy behavior: prefer 2v2, use 2v1/1v1 for leftovers.
+  _computeRoundFormat: function(N, C) {
+    var games = [];
+    var rem = N;
+    var cLeft = C;
+    while (cLeft > 0 && rem >= 2) {
+      if (rem >= 4) { games.push(4); rem -= 4; }
+      else if (rem === 3) { games.push(3); rem -= 3; }
+      else { games.push(2); rem -= 2; }
+      cLeft--;
+    }
+    return games;
   },
 
-  // Deep-copy virtual history maps
-  _cloneHistory: function(vGames, vPartner, vOpponent) {
-    var cg = {};
-    Object.keys(vGames).forEach(function(k) { cg[k] = vGames[k]; });
-    var cp = {};
-    Object.keys(vPartner).forEach(function(k) {
-      cp[k] = {};
-      Object.keys(vPartner[k]).forEach(function(k2) { cp[k][k2] = vPartner[k][k2]; });
-    });
-    var co = {};
-    Object.keys(vOpponent).forEach(function(k) {
-      co[k] = {};
-      Object.keys(vOpponent[k]).forEach(function(k2) { co[k][k2] = vOpponent[k][k2]; });
-    });
-    return { vGames: cg, vPartner: cp, vOpponent: co };
+  // Xorshift32 PRNG — tiny, deterministic, no dependencies.
+  _seededRandom: function(seed) {
+    var s = (seed | 0) || 0x9E3779B9;
+    return function() {
+      s ^= s << 13; s |= 0;
+      s ^= s >>> 17; s |= 0;
+      s ^= s << 5;  s |= 0;
+      return ((s >>> 0) / 4294967296);
+    };
   },
 
-  // Generate N candidate batches and return the best one
-  _generateCandidateBatch: function(present, gamesInBatch, vGames, vPartner, vOpponent, existingGroups) {
-    var self = this;
-    var NUM_CANDIDATES = 50;
-    var bestBatch = null;
-    var bestScore = Infinity;
-
-    // Compute previous batch games (last courtCount schedule entries with any status)
-    var courtCount = Object.values(App.state.courts).filter(function(c) { return c.active; }).length || 1;
-    var scheduleLen = App.state.schedule.length;
-    var prevBatchGames = [];
-    if (scheduleLen >= courtCount) {
-      for (var pb = scheduleLen - courtCount; pb < scheduleLen; pb++) {
-        var pe = App.state.schedule[pb];
-        prevBatchGames.push(pe.teamA.concat(pe.teamB));
+  // Stable integer hash of generation inputs — same inputs produce same seed,
+  // so tests and debug sessions are reproducible.
+  _computeSeed: function(count, present) {
+    var h = 2166136261 >>> 0;
+    function mix(str) {
+      for (var i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
       }
     }
-
-    for (var n = 0; n < NUM_CANDIDATES; n++) {
-      var clone = self._cloneHistory(vGames, vPartner, vOpponent);
-      var batch = self._buildOneBatch(present, gamesInBatch, clone.vGames, clone.vPartner, clone.vOpponent, n === 0);
-      if (!batch || batch.length === 0) continue;
-      var score = self._scoreBatch(batch, vGames, vPartner, vOpponent, present, existingGroups, prevBatchGames);
-      if (score < bestScore) {
-        bestScore = score;
-        bestBatch = batch;
-      }
-    }
-
-    return bestBatch || [];
+    mix('c' + count);
+    var ids = present.map(function(p) { return p.id; }).slice().sort();
+    ids.forEach(function(id) { mix('|' + id); });
+    mix('|s' + (App.state && App.state.schedule ? App.state.schedule.length : 0));
+    return h;
   },
 
-  // Build one candidate batch of games (greedy per-game with randomized tiebreaking)
-  _buildOneBatch: function(present, gamesInBatch, cGames, cPartner, cOpponent, deterministic) {
-    var self = this;
-    var batch = [];
-    var batchUsed = {};
+  // Build a randomized initial schedule of `rounds` rounds.
+  // Each round: shuffle player IDs, assign first playersPerRound to games,
+  // rest to bench. SA will optimize from here.
+  _seedSchedule: function(present, gameSizes, rounds, rng) {
+    var playerIds = present.map(function(p) { return p.id; });
+    var allGames = [];
+    var allBench = [];
+    var playersPerRound = gameSizes.reduce(function(a, b) { return a + b; }, 0);
 
-    for (var gi = 0; gi < gamesInBatch; gi++) {
-      var available = present.filter(function(p) { return !batchUsed[p.id]; });
-      if (available.length < 2) break;
-
-      var totalVirtual = 0;
-      present.forEach(function(p) { totalVirtual += (cGames[p.id] || 0); });
-      var avgVirtual = present.length > 0 ? totalVirtual / present.length : 0;
-
-      var scored = available.map(function(player) {
-        var score = 0;
-        var gDiff = (cGames[player.id] || 0) - avgVirtual;
-        if (gDiff > 0) score += gDiff * 50;
-
-        if (Array.isArray(player.wishedPartners)) {
-          player.wishedPartners.forEach(function(wishId) {
-            if (player.wishesFulfilled.indexOf(wishId) === -1) {
-              var partner = App.state.players[wishId];
-              if (partner && partner.present && !batchUsed[wishId]) {
-                score -= 80;
-              }
-            }
-          });
+    for (var r = 0; r < rounds; r++) {
+      var shuffled = playerIds.slice();
+      for (var i = shuffled.length - 1; i > 0; i--) {
+        var j = Math.floor(rng() * (i + 1));
+        var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+      }
+      var playing = shuffled.slice(0, playersPerRound);
+      var bench = shuffled.slice(playersPerRound);
+      var roundGames = [];
+      var offset = 0;
+      for (var g = 0; g < gameSizes.length; g++) {
+        var sz = gameSizes[g];
+        var slice = playing.slice(offset, offset + sz);
+        offset += sz;
+        if (sz === 4) {
+          roundGames.push({ teamA: [slice[0], slice[1]], teamB: [slice[2], slice[3]] });
+        } else if (sz === 3) {
+          roundGames.push({ teamA: [slice[0], slice[1]], teamB: [slice[2]] });
+        } else if (sz === 2) {
+          roundGames.push({ teamA: [slice[0]], teamB: [slice[1]] });
         }
-
-        // Random tiebreaker for non-deterministic candidates (small enough not to override fairness)
-        var rnd = deterministic ? 0 : Math.random() * 10;
-        return { player: player, score: score + rnd };
-      });
-
-      scored.sort(function(a, b) { return a.score - b.score; });
-
-      var gameSize = Math.min(4, available.length);
-      var picked = scored.slice(0, gameSize).map(function(s) { return s.player; });
-
-      var split = self._splitWithVirtual(picked, cPartner, cOpponent);
-
-      batch.push({ teamA: split.teamA, teamB: split.teamB });
-
-      var allPicked = split.teamA.concat(split.teamB);
-      allPicked.forEach(function(pid) {
-        if (cGames[pid] !== undefined) cGames[pid]++;
-        batchUsed[pid] = true;
-      });
-      self._updateVirtualPairs(split.teamA, split.teamB, cPartner, cOpponent);
+      }
+      allGames.push(roundGames);
+      allBench.push(bench);
     }
-
-    return batch;
+    return { games: allGames, bench: allBench };
   },
 
-  // Score a complete batch — lower is better
-  _scoreBatch: function(batch, vGames, vPartner, vOpponent, present, existingGroups, prevBatchGames) {
-    var penalty = 0;
-    var simGames = {};
-    Object.keys(vGames).forEach(function(k) { simGames[k] = vGames[k]; });
+  // Split game size into [teamA size, teamB size].
+  _splitGameSize: function(sz) {
+    if (sz === 4) return [2, 2];
+    if (sz === 3) return [2, 1];
+    if (sz === 2) return [1, 1];
+    return [0, 0];
+  },
 
-    // Sequential auto-assign check: can this batch be assigned to courts as
-    // the previous batch finishes sequentially? Each prev finish adds players
-    // to the free pool; greedily try to assign a batch game after each finish.
-    if (prevBatchGames && prevBatchGames.length > 0) {
-      var prevP = {};
-      prevBatchGames.forEach(function(g) { g.forEach(function(pid) { prevP[pid] = true; }); });
-      var pool = {};
-      present.forEach(function(p) { if (!prevP[p.id]) pool[p.id] = true; });
+  // Initialize the mutable SA state from the seed schedule.
+  _initSAState: function(seedData, basePartner, baseOpponent, present, gameSizes, rounds) {
+    var self = this;
+    var N = present.length;
+    var playerIds = present.map(function(p) { return p.id; });
+    var gamesPerRound = gameSizes.length;
+    var playersPerRound = gameSizes.reduce(function(a, b) { return a + b; }, 0);
+    var benchSize = N - playersPerRound;
 
-      var assigned = {};
-      var failedAssigns = 0;
-      var iters = Math.min(prevBatchGames.length, batch.length);
-      for (var fi = 0; fi < iters; fi++) {
-        prevBatchGames[fi].forEach(function(pid) { pool[pid] = true; });
-        var found = false;
-        for (var si = 0; si < batch.length; si++) {
-          if (assigned[si]) continue;
-          var gamePids = batch[si].teamA.concat(batch[si].teamB);
-          var allIn = gamePids.every(function(pid) { return pool[pid]; });
-          if (allIn) {
-            assigned[si] = true;
-            found = true;
-            break;
+    var state = {
+      present: present,
+      playerIds: playerIds,
+      N: N,
+      rounds: rounds,
+      gameSizes: gameSizes,
+      gamesPerRound: gamesPerRound,
+      benchSize: benchSize,
+      games: [],
+      benchByRound: [],
+      positions: [],
+      partnerCount: {},
+      opponentCount: {},
+      benchCount: {},
+      roundSlotList: null
+    };
+
+    // Seed counts from base (committed/pending history)
+    playerIds.forEach(function(id) {
+      state.partnerCount[id] = {};
+      state.opponentCount[id] = {};
+      state.benchCount[id] = 0;
+      playerIds.forEach(function(other) {
+        if (id === other) return;
+        state.partnerCount[id][other] = (basePartner[id] && basePartner[id][other]) || 0;
+        state.opponentCount[id][other] = (baseOpponent[id] && baseOpponent[id][other]) || 0;
+      });
+    });
+
+    // Place seed games and update counts
+    for (var r = 0; r < rounds; r++) {
+      state.positions.push({});
+      var roundGames = seedData.games[r];
+      for (var g = 0; g < gamesPerRound; g++) {
+        var sg = roundGames[g];
+        var gameObj = { round: r, teamA: sg.teamA.slice(), teamB: sg.teamB.slice() };
+        state.games.push(gameObj);
+        self._applyGameCountDelta(state, gameObj.teamA, gameObj.teamB, +1);
+        gameObj.teamA.forEach(function(pid, pos) {
+          state.positions[r][pid] = { game: g, team: 'A', pos: pos };
+        });
+        gameObj.teamB.forEach(function(pid, pos) {
+          state.positions[r][pid] = { game: g, team: 'B', pos: pos };
+        });
+      }
+      state.benchByRound.push(seedData.bench[r].slice());
+      seedData.bench[r].forEach(function(pid, pos) {
+        state.positions[r][pid] = { bench: true, pos: pos };
+        state.benchCount[pid]++;
+      });
+    }
+
+    // Precompute slot list per round for fast move proposal
+    state.roundSlotList = [];
+    for (var rr = 0; rr < rounds; rr++) {
+      var list = [];
+      for (var gg = 0; gg < gamesPerRound; gg++) {
+        var split = self._splitGameSize(gameSizes[gg]);
+        for (var pa = 0; pa < split[0]; pa++) list.push({ game: gg, team: 'A', pos: pa });
+        for (var pb = 0; pb < split[1]; pb++) list.push({ game: gg, team: 'B', pos: pb });
+      }
+      for (var bb = 0; bb < benchSize; bb++) list.push({ bench: true, pos: bb });
+      state.roundSlotList.push(list);
+    }
+
+    return state;
+  },
+
+  // Apply a ±1 delta to partner/opponent counts for a game's players.
+  _applyGameCountDelta: function(state, teamA, teamB, delta) {
+    for (var i = 0; i < teamA.length; i++) {
+      for (var j = i + 1; j < teamA.length; j++) {
+        var a = teamA[i], b = teamA[j];
+        if (a == null || b == null) continue;
+        state.partnerCount[a][b] += delta;
+        state.partnerCount[b][a] += delta;
+      }
+    }
+    for (var i = 0; i < teamB.length; i++) {
+      for (var j = i + 1; j < teamB.length; j++) {
+        var a = teamB[i], b = teamB[j];
+        if (a == null || b == null) continue;
+        state.partnerCount[a][b] += delta;
+        state.partnerCount[b][a] += delta;
+      }
+    }
+    for (var i = 0; i < teamA.length; i++) {
+      for (var j = 0; j < teamB.length; j++) {
+        var a = teamA[i], b = teamB[j];
+        if (a == null || b == null) continue;
+        state.opponentCount[a][b] += delta;
+        state.opponentCount[b][a] += delta;
+      }
+    }
+  },
+
+  // Read the player at a given (round, slot).
+  _getPlayerAtSlot: function(state, r, slot) {
+    if (slot.bench) return state.benchByRound[r][slot.pos];
+    var game = state.games[r * state.gamesPerRound + slot.game];
+    if (slot.team === 'A') return game.teamA[slot.pos];
+    return game.teamB[slot.pos];
+  },
+
+  // Remove a player from a slot, updating counts and positions.
+  _removeFromSlot: function(state, r, pid, slot) {
+    if (slot.bench) {
+      state.benchByRound[r][slot.pos] = null;
+      state.benchCount[pid]--;
+      delete state.positions[r][pid];
+      return;
+    }
+    var game = state.games[r * state.gamesPerRound + slot.game];
+    var myTeam = slot.team === 'A' ? game.teamA : game.teamB;
+    var otherTeam = slot.team === 'A' ? game.teamB : game.teamA;
+    for (var i = 0; i < myTeam.length; i++) {
+      if (i === slot.pos) continue;
+      var tm = myTeam[i];
+      if (tm == null) continue;
+      state.partnerCount[pid][tm]--;
+      state.partnerCount[tm][pid]--;
+    }
+    for (var j = 0; j < otherTeam.length; j++) {
+      var op = otherTeam[j];
+      if (op == null) continue;
+      state.opponentCount[pid][op]--;
+      state.opponentCount[op][pid]--;
+    }
+    myTeam[slot.pos] = null;
+    delete state.positions[r][pid];
+  },
+
+  // Add a player to a slot, updating counts and positions.
+  _addToSlot: function(state, r, pid, slot) {
+    if (slot.bench) {
+      state.benchByRound[r][slot.pos] = pid;
+      state.benchCount[pid]++;
+      state.positions[r][pid] = { bench: true, pos: slot.pos };
+      return;
+    }
+    var game = state.games[r * state.gamesPerRound + slot.game];
+    var myTeam = slot.team === 'A' ? game.teamA : game.teamB;
+    var otherTeam = slot.team === 'A' ? game.teamB : game.teamA;
+    myTeam[slot.pos] = pid;
+    state.positions[r][pid] = { game: slot.game, team: slot.team, pos: slot.pos };
+    for (var i = 0; i < myTeam.length; i++) {
+      if (i === slot.pos) continue;
+      var tm = myTeam[i];
+      if (tm == null) continue;
+      state.partnerCount[pid][tm]++;
+      state.partnerCount[tm][pid]++;
+    }
+    for (var j = 0; j < otherTeam.length; j++) {
+      var op = otherTeam[j];
+      if (op == null) continue;
+      state.opponentCount[pid][op]++;
+      state.opponentCount[op][pid]++;
+    }
+  },
+
+  // Apply a within-round swap. `move` is its own inverse, so re-apply to undo.
+  _applySwap: function(state, move) {
+    var r = move.round;
+    var pA = this._getPlayerAtSlot(state, r, move.slotA);
+    var pB = this._getPlayerAtSlot(state, r, move.slotB);
+    if (pA === pB) return;
+    this._removeFromSlot(state, r, pA, move.slotA);
+    this._removeFromSlot(state, r, pB, move.slotB);
+    this._addToSlot(state, r, pA, move.slotB);
+    this._addToSlot(state, r, pB, move.slotA);
+  },
+
+  // Propose a within-round swap of two distinct slots. Filters no-ops
+  // (same slot, or both in the same team of the same game).
+  _proposeMove: function(state, rng) {
+    var r = Math.floor(rng() * state.rounds);
+    var slots = state.roundSlotList[r];
+    if (slots.length < 2) return null;
+    var iA = Math.floor(rng() * slots.length);
+    var iB = Math.floor(rng() * (slots.length - 1));
+    if (iB >= iA) iB++;
+    var slotA = slots[iA];
+    var slotB = slots[iB];
+    // Same-team swap inside one game does nothing.
+    if (!slotA.bench && !slotB.bench && slotA.game === slotB.game && slotA.team === slotB.team) {
+      return null;
+    }
+    return { round: r, slotA: slotA, slotB: slotB };
+  },
+
+  // Compute the lexicographic objective tuple.
+  // Lower is better on the first differing component.
+  _lexTuple: function(state) {
+    var ids = state.playerIds;
+    var N = state.N;
+
+    var maxPartner = 0, totalPartnerRepeats = 0;
+    var maxOpp = 0, totalOppRepeats = 0;
+    for (var i = 0; i < N; i++) {
+      var a = ids[i];
+      for (var j = i + 1; j < N; j++) {
+        var b = ids[j];
+        var pc = state.partnerCount[a][b] || 0;
+        if (pc > maxPartner) maxPartner = pc;
+        if (pc > 1) totalPartnerRepeats += pc - 1;
+        var oc = state.opponentCount[a][b] || 0;
+        if (oc > maxOpp) maxOpp = oc;
+        if (oc > 1) totalOppRepeats += oc - 1;
+      }
+    }
+
+    // Games-played spread = (base + new games) max − min. New games per player
+    // = rounds − benchCount (everyone is in every round, playing or benching).
+    var minG = Infinity, maxG = -Infinity;
+    var baseG = state.baseGamesPlayed || {};
+    for (var k = 0; k < N; k++) {
+      var id = ids[k];
+      var newGames = state.rounds - (state.benchCount[id] || 0);
+      var totalG = (baseG[id] || 0) + newGames;
+      if (totalG < minG) minG = totalG;
+      if (totalG > maxG) maxG = totalG;
+    }
+    var spread = maxG - minG;
+
+    var maxConsec = 0;
+    for (var p = 0; p < N; p++) {
+      var id = ids[p];
+      var streak = 0;
+      for (var rr = 0; rr < state.rounds; rr++) {
+        var pos = state.positions[rr][id];
+        if (pos && pos.bench) {
+          streak++;
+          if (streak > maxConsec) maxConsec = streak;
+        } else {
+          streak = 0;
+        }
+      }
+    }
+
+    // Group regrouping — same 4 players play together again (possibly with a
+    // different team split). Penalize against committed history and within
+    // the current schedule. This is bad UX even when partnerships don't repeat.
+    var groupRepeats = 0;
+    var seenGroups = {};
+    var baseGroups = state.baseGroups || {};
+    for (var gi = 0; gi < state.games.length; gi++) {
+      var gm = state.games[gi];
+      var all4 = gm.teamA.concat(gm.teamB);
+      if (all4.length !== 4) continue;
+      // Skip games with nulls (incomplete) — shouldn't happen at tuple-compute time
+      var hasNull = false;
+      for (var kk = 0; kk < all4.length; kk++) if (all4[kk] == null) { hasNull = true; break; }
+      if (hasNull) continue;
+      var gkey = all4.slice().sort().join(',');
+      if (baseGroups[gkey]) groupRepeats++;
+      if (seenGroups[gkey]) groupRepeats++;
+      seenGroups[gkey] = true;
+    }
+
+    // Auto-assign "stuck" count: for every possible "first finisher" in round
+    // r-1, does at least one game in round r exist that's disjoint from the
+    // other round-r-1 games (still playing)? Count failures. For the test
+    // case of one court finishing mid-round, we need this specific coverage —
+    // not just "some game fits some scenario" but "every scenario has a fit".
+    var stuck = 0;
+    var gpr = state.gamesPerRound;
+    for (var r = 1; r < state.rounds; r++) {
+      var prevBase = (r - 1) * gpr;
+      var currBase = r * gpr;
+      for (var prev = 0; prev < gpr; prev++) {
+        // Players still playing if game `prev` finishes first
+        var stillPlaying = {};
+        for (var o = 0; o < gpr; o++) {
+          if (o === prev) continue;
+          var og = state.games[prevBase + o];
+          for (var k = 0; k < og.teamA.length; k++) {
+            if (og.teamA[k] != null) stillPlaying[og.teamA[k]] = true;
+          }
+          for (var k2 = 0; k2 < og.teamB.length; k2++) {
+            if (og.teamB[k2] != null) stillPlaying[og.teamB[k2]] = true;
           }
         }
-        if (!found) failedAssigns++;
-      }
-      penalty += failedAssigns * 400;
-    }
-
-    for (var gi = 0; gi < batch.length; gi++) {
-      var game = batch[gi];
-      var tA = game.teamA;
-      var tB = game.teamB;
-
-      // Partner repeats — exponential (very bad)
-      [tA, tB].forEach(function(team) {
-        if (team.length === 2) {
-          var count = (vPartner[team[0]] && vPartner[team[0]][team[1]]) || 0;
-          if (count > 0) penalty += (count + 1) * (count + 1) * 100;
+        // Look for any round-r game that can be assigned now (disjoint from stillPlaying)
+        var foundFit = false;
+        for (var g = 0; g < gpr; g++) {
+          var curr = state.games[currBase + g];
+          var currPids = curr.teamA.concat(curr.teamB);
+          var conflict = false;
+          for (var cp = 0; cp < currPids.length; cp++) {
+            if (currPids[cp] == null) continue;
+            if (stillPlaying[currPids[cp]]) { conflict = true; break; }
+          }
+          if (!conflict) { foundFit = true; break; }
         }
-      });
-
-      // Opponent repeats (bad when 3+)
-      tA.forEach(function(pa) {
-        tB.forEach(function(pb) {
-          var count = (vOpponent[pa] && vOpponent[pa][pb]) || 0;
-          if (count >= 2) penalty += (count - 1) * (count - 1) * 50;
-        });
-      });
-
-      // Group regrouping (same 4 players as a previous game)
-      var groupKey = tA.concat(tB).slice().sort().join(',');
-      if (existingGroups.indexOf(groupKey) !== -1) penalty += 500;
-
-      // Regrouping within this batch
-      for (var prev = 0; prev < gi; prev++) {
-        var prevKey = batch[prev].teamA.concat(batch[prev].teamB).slice().sort().join(',');
-        if (groupKey === prevKey) penalty += 500;
+        if (!foundFit) stuck++;
       }
-
-      // 3+ overlap with existing games
-      var gameIds = tA.concat(tB);
-      existingGroups.forEach(function(gk) {
-        var prevIds = gk.split(',');
-        var overlap = 0;
-        gameIds.forEach(function(id) { if (prevIds.indexOf(id) !== -1) overlap++; });
-        if (overlap >= 3) penalty += 30;
-      });
-
-      tA.concat(tB).forEach(function(pid) {
-        if (simGames[pid] !== undefined) simGames[pid]++;
-      });
     }
 
-    // Intra-batch partner repeats
-    var batchPartners = {};
-    for (var bi = 0; bi < batch.length; bi++) {
-      [batch[bi].teamA, batch[bi].teamB].forEach(function(team) {
-        if (team.length === 2) {
-          var pk = [team[0], team[1]].sort().join(',');
-          batchPartners[pk] = (batchPartners[pk] || 0) + 1;
-        }
-      });
+    var unfulfilled = 0;
+    for (var q = 0; q < N; q++) {
+      var pl = state.present[q];
+      if (!Array.isArray(pl.wishedPartners)) continue;
+      for (var w = 0; w < pl.wishedPartners.length; w++) {
+        var wid = pl.wishedPartners[w];
+        if (pl.wishesFulfilled && pl.wishesFulfilled.indexOf(wid) !== -1) continue;
+        if (!state.partnerCount[pl.id] || !(wid in state.partnerCount[pl.id])) continue;
+        if ((state.partnerCount[pl.id][wid] || 0) === 0) unfulfilled++;
+      }
     }
-    Object.values(batchPartners).forEach(function(cnt) {
-      if (cnt > 1) penalty += (cnt - 1) * 400;
-    });
 
-    // Intra-batch opponent repeats
-    var batchOpponents = {};
-    for (var bo = 0; bo < batch.length; bo++) {
-      batch[bo].teamA.forEach(function(pa) {
-        batch[bo].teamB.forEach(function(pb) {
-          var ok = [pa, pb].sort().join(',');
-          batchOpponents[ok] = (batchOpponents[ok] || 0) + 1;
-        });
-      });
-    }
-    Object.values(batchOpponents).forEach(function(cnt) {
-      if (cnt > 1) penalty += (cnt - 1) * 60;
-    });
-
-    // Fairness: penalize uneven distribution
-    var vals = present.map(function(p) { return simGames[p.id] || 0; });
-    var spread = Math.max.apply(null, vals) - Math.min.apply(null, vals);
-    if (spread > 2) penalty += (spread - 2) * 40;
-
-    return penalty;
+    return [maxPartner, totalPartnerRepeats, maxOpp, totalOppRepeats, groupRepeats, spread, maxConsec, stuck, unfulfilled];
   },
 
-  _splitWithVirtual: function(gamePlayers, vPartner, vOpponent) {
-    var ids = gamePlayers.map(function(p) { return p.id; });
-    var splits;
+  _lexCmp: function(a, b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] < b[i]) return -1;
+      if (a[i] > b[i]) return 1;
+    }
+    return 0;
+  },
 
-    if (ids.length === 4) {
-      splits = [
-        { teamA: [ids[0], ids[1]], teamB: [ids[2], ids[3]] },
-        { teamA: [ids[0], ids[2]], teamB: [ids[1], ids[3]] },
-        { teamA: [ids[0], ids[3]], teamB: [ids[1], ids[2]] }
-      ];
-    } else if (ids.length === 3) {
-      splits = [
-        { teamA: [ids[0], ids[1]], teamB: [ids[2]] },
-        { teamA: [ids[0], ids[2]], teamB: [ids[1]] },
-        { teamA: [ids[1], ids[2]], teamB: [ids[0]] }
-      ];
-    } else {
-      splits = [{ teamA: [ids[0]], teamB: [ids[1]] }];
+  // Snapshot the mutable parts of state so we can restore after a rejected move.
+  _snapshotState: function(state) {
+    var snap = {
+      games: state.games.map(function(g) {
+        return { round: g.round, teamA: g.teamA.slice(), teamB: g.teamB.slice() };
+      }),
+      benchByRound: state.benchByRound.map(function(b) { return b.slice(); }),
+      positions: state.positions.map(function(p) {
+        var c = {};
+        Object.keys(p).forEach(function(k) {
+          var v = p[k];
+          c[k] = { game: v.game, team: v.team, pos: v.pos, bench: v.bench };
+        });
+        return c;
+      }),
+      partnerCount: {},
+      opponentCount: {},
+      benchCount: {}
+    };
+    Object.keys(state.partnerCount).forEach(function(id) {
+      snap.partnerCount[id] = Object.assign({}, state.partnerCount[id]);
+      snap.opponentCount[id] = Object.assign({}, state.opponentCount[id]);
+      snap.benchCount[id] = state.benchCount[id];
+    });
+    return snap;
+  },
+
+  _restoreState: function(state, snap) {
+    state.games = snap.games.map(function(g) {
+      return { round: g.round, teamA: g.teamA.slice(), teamB: g.teamB.slice() };
+    });
+    state.benchByRound = snap.benchByRound.map(function(b) { return b.slice(); });
+    state.positions = snap.positions.map(function(p) {
+      var c = {};
+      Object.keys(p).forEach(function(k) {
+        var v = p[k];
+        c[k] = { game: v.game, team: v.team, pos: v.pos, bench: v.bench };
+      });
+      return c;
+    });
+    state.partnerCount = {};
+    state.opponentCount = {};
+    state.benchCount = {};
+    Object.keys(snap.partnerCount).forEach(function(id) {
+      state.partnerCount[id] = Object.assign({}, snap.partnerCount[id]);
+      state.opponentCount[id] = Object.assign({}, snap.opponentCount[id]);
+      state.benchCount[id] = snap.benchCount[id];
+    });
+  },
+
+  // SA main loop: stochastic hill-climb with lateral moves and stagnation restarts.
+  _runSA: function(state, rng, maxIters) {
+    var currentTuple = this._lexTuple(state);
+    var bestTuple = currentTuple.slice();
+    var bestSnap = this._snapshotState(state);
+    var stagnant = 0;
+    var STAGNANT_LIMIT = Math.max(500, Math.floor(maxIters / 10));
+
+    for (var iter = 0; iter < maxIters; iter++) {
+      var move = this._proposeMove(state, rng);
+      if (!move) continue;
+      this._applySwap(state, move);
+      var newTuple = this._lexTuple(state);
+      var cmp = this._lexCmp(newTuple, currentTuple);
+      if (cmp < 0) {
+        currentTuple = newTuple;
+        stagnant = 0;
+        if (this._lexCmp(newTuple, bestTuple) < 0) {
+          bestTuple = newTuple.slice();
+          bestSnap = this._snapshotState(state);
+        }
+      } else if (cmp === 0) {
+        // Lateral move — accept with 50% probability to escape plateaus.
+        if (rng() < 0.5) {
+          currentTuple = newTuple;
+        } else {
+          this._applySwap(state, move);
+        }
+        stagnant++;
+      } else {
+        this._applySwap(state, move);
+        stagnant++;
+      }
+
+      if (stagnant >= STAGNANT_LIMIT) {
+        // Restart from best seen, perturb with a few random swaps.
+        this._restoreState(state, bestSnap);
+        currentTuple = bestTuple.slice();
+        for (var p = 0; p < 3; p++) {
+          var pm = this._proposeMove(state, rng);
+          if (pm) this._applySwap(state, pm);
+        }
+        currentTuple = this._lexTuple(state);
+        stagnant = 0;
+      }
     }
 
-    var scoredSplits = splits.map(function(split) {
-      var penalty = 0;
-      [split.teamA, split.teamB].forEach(function(team) {
-        if (team.length < 2) return;
-        var count = (vPartner[team[0]] && vPartner[team[0]][team[1]]) || 0;
-        if (count > 0) penalty += count * 100;
-      });
-      split.teamA.forEach(function(pa) {
-        split.teamB.forEach(function(pb) {
-          var count = (vOpponent[pa] && vOpponent[pa][pb]) || 0;
-          if (count > 1) penalty += (count - 1) * 30;
-        });
-      });
-      // Wish bonus
-      [split.teamA, split.teamB].forEach(function(team) {
-        if (team.length < 2) return;
-        var p0 = App.state.players[team[0]];
-        var p1 = App.state.players[team[1]];
-        if (!p0 || !p1) return;
-        var p0w = Array.isArray(p0.wishedPartners) && p0.wishedPartners.indexOf(p1.id) !== -1 && p0.wishesFulfilled.indexOf(p1.id) === -1;
-        var p1w = Array.isArray(p1.wishedPartners) && p1.wishedPartners.indexOf(p0.id) !== -1 && p1.wishesFulfilled.indexOf(p0.id) === -1;
-        if (p0w || p1w) penalty -= 100;
-      });
-      return { teamA: split.teamA, teamB: split.teamB, penalty: penalty };
-    });
-
-    scoredSplits.sort(function(a, b) { return a.penalty - b.penalty; });
-    return { teamA: scoredSplits[0].teamA, teamB: scoredSplits[0].teamB };
+    // Always return the best state seen.
+    if (this._lexCmp(currentTuple, bestTuple) > 0) {
+      this._restoreState(state, bestSnap);
+    }
   },
 
   // Generate one more batch (size = court count)

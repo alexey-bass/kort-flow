@@ -1115,4 +1115,93 @@ describe('App.Shuffle', function() {
       assert.deepStrictEqual(state.schedule, []);
     });
   });
+
+  describe('SA determinism', function() {
+    // Same session state → same schedule. Enables reproducible tests and debugging.
+    it('should produce identical schedules for the same session after clearing and regenerating', function() {
+      App.Session.create('Det', 'shuffle');
+      App.Session.initCourts([1, 2, 3, 4]);
+      var names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
+      names.forEach(function(n) {
+        var id = App.Players.add(n);
+        App.Players.markPresent(id);
+      });
+      App.Shuffle.generate(16);
+      var firstKeys = App.state.schedule.map(function(e) {
+        return [e.teamA.slice().sort().join(','), e.teamB.slice().sort().join(',')].join('|');
+      });
+
+      // Clear pending and regenerate — same inputs should give same output.
+      App.Shuffle.clearPending();
+      App.Shuffle.generate(16);
+      var secondKeys = App.state.schedule.map(function(e) {
+        return [e.teamA.slice().sort().join(','), e.teamB.slice().sort().join(',')].join('|');
+      });
+
+      assert.deepStrictEqual(secondKeys, firstKeys, 'Identical inputs should produce identical schedules');
+    });
+  });
+
+  describe('SA round invariant', function() {
+    // Every round (group of courtCount consecutive games) must have no
+    // duplicated players across its games.
+    it('should never place a player in two games of the same round', function() {
+      createShuffleSession(17); // Note: default is 2 courts, override below
+      App.Session.initCourts([1, 2, 3, 4]);
+      // Re-add players for the new court count
+      Object.keys(App.state.players).forEach(function(id) {
+        App.Players.markPresent(id);
+      });
+      App.Shuffle.generate(40);
+      var courtCount = 4;
+      for (var r = 0; r < 10; r++) {
+        var seen = {};
+        for (var g = 0; g < courtCount; g++) {
+          var idx = r * courtCount + g;
+          if (idx >= App.state.schedule.length) break;
+          var all = App.state.schedule[idx].teamA.concat(App.state.schedule[idx].teamB);
+          all.forEach(function(pid) {
+            assert.ok(!seen[pid], 'Player ' + pid + ' appears twice in round ' + r);
+            seen[pid] = true;
+          });
+        }
+      }
+    });
+  });
+
+  describe('SA quality — 17p/4c/10r', function() {
+    // The primary target configuration for offline SA. Partner repeats should
+    // be 0 in virtually all runs; max opponent pair ≤ 3.
+    it('should produce 0 partner repeats for 17 players × 4 courts × 10 rounds', function() {
+      App.Session.create('Quality', 'shuffle');
+      App.Session.initCourts([1, 2, 3, 4]);
+      for (var i = 0; i < 17; i++) {
+        var id = App.Players.add('P' + (i + 1));
+        App.Players.markPresent(id);
+      }
+      App.Shuffle.generate(40);
+      assert.strictEqual(App.state.schedule.length, 40);
+
+      var partners = {};
+      var opponents = {};
+      App.state.schedule.forEach(function(e) {
+        [e.teamA, e.teamB].forEach(function(t) {
+          if (t.length === 2) {
+            var k = t.slice().sort().join('-');
+            partners[k] = (partners[k] || 0) + 1;
+          }
+        });
+        e.teamA.forEach(function(a) {
+          e.teamB.forEach(function(b) {
+            var k = [a, b].sort().join('-');
+            opponents[k] = (opponents[k] || 0) + 1;
+          });
+        });
+      });
+      var maxPartner = Math.max.apply(null, Object.values(partners));
+      var maxOpponent = Math.max.apply(null, Object.values(opponents));
+      assert.ok(maxPartner <= 1, 'Partner pairs should never repeat in 17p/4c/10r, got max ' + maxPartner);
+      assert.ok(maxOpponent <= 3, 'Opponent pairs should face at most 3x, got max ' + maxOpponent);
+    });
+  });
 });

@@ -91,6 +91,9 @@ function runSimulation(seed) {
     startReadyGames();
     advanceMinutes(8 + Math.floor(Math.random() * 8));
     finishAllCourts();
+    // Round-based schedules (offline SA) assign next round's games as a batch
+    // when all courts are free. Without this, next round's games stay pending.
+    App.Shuffle.autoAssignAll();
 
     var pending = App.state.schedule.filter(function(e) {
       return e.status === 'pending' || e.status === 'ready';
@@ -181,12 +184,10 @@ for (var run = 1; run <= NUM_RUNS; run++) {
 
   var runFails = [];
 
-  // Per-match thresholds (scale with total matches):
-  //   partner repeat rate  ≤ 15% of total matches
-  //   frequent opponent pairs (3+) ≤ 60% of total matches
-  //   no pair with 6+ opponent repeats
-  var maxPartnerRepeats = Math.floor(result.matches * 0.15);
-  var maxFrequentOpp = Math.floor(result.matches * 0.60);
+  // Tightened thresholds for offline SA: partner repeats should be 0–2,
+  // opponents should never face each other more than 3x (SA typically caps at 2).
+  var maxPartnerRepeats = Math.max(2, Math.floor(result.matches * 0.05));
+  var maxFrequentOpp = Math.max(2, Math.floor(result.matches * 0.05));
   var partnerCount = result.repeatedPartners.length;
   var frequentCount = result.frequentOpponents.length;
   var worstOpp = result.frequentOpponents.reduce(function(m, p) { return p[1] > m ? p[1] : m; }, 0);
@@ -199,8 +200,8 @@ for (var run = 1; run <= NUM_RUNS; run++) {
     runFails.push('Frequent opponents (3+): ' + frequentCount + ' > ' + maxFrequentOpp + ' limit — ' + result.frequentOpponents.map(function(p) { return p[0] + ' (' + p[1] + 'x)'; }).join(', '));
   }
 
-  if (worstOpp >= 6) {
-    runFails.push('Worst opponent pair: ' + worstOpp + 'x (max allowed: 5)');
+  if (worstOpp >= 4) {
+    runFails.push('Worst opponent pair: ' + worstOpp + 'x (max allowed: 3)');
   }
 
   if (result.groupOverlaps > 0) {
@@ -235,9 +236,9 @@ if (failures.length === 0) {
   console.log('All ' + NUM_RUNS + ' simulations passed quality criteria ✓');
   console.log('');
   console.log('Criteria checked (per-match thresholds):');
-  console.log('  • Partner pair repeats ≤ 15% of matches');
-  console.log('  • Frequent opponent pairs (3+) ≤ 60% of matches');
-  console.log('  • No pair with 6+ opponent repeats');
+  console.log('  • Partner pair repeats ≤ 5% of matches');
+  console.log('  • Frequent opponent pairs (3+) ≤ 5% of matches');
+  console.log('  • No pair faces another 4+ times as opponents');
   console.log('  • No group regrouping (no exact same 4 players twice)');
   console.log('  • Games spread ≤ 3 (fair distribution)');
   console.log('  • Late players within avg - 2 games');
