@@ -1175,16 +1175,19 @@ describe('App.Shuffle', function() {
     //   partner repeats = 0 (max ≤ 1)
     //   group (same 4 players in one game) repeats = 0 (max ≤ 1)
     //   solo (2v1) repeats = 0 (max ≤ 1 for configs that produce 2v1s)
+    //   1v1 spread (max − min count per player) ≤ 1 for configs that produce 1v1s
+    //   no same player in 1v1 in consecutive rounds
     //   opponent repeats minimized (max ≤ 3)
     //   SA generation runtime < 5s
     var rounds = 10;
     var configs = [
-      { p: 15, c: 4, hasSolo: true },
-      { p: 16, c: 4, hasSolo: false },
-      { p: 17, c: 4, hasSolo: false },
-      { p: 19, c: 5, hasSolo: true },
-      { p: 20, c: 5, hasSolo: false },
-      { p: 21, c: 5, hasSolo: false },
+      { p: 14, c: 4, hasSolo: false, has1v1: true },
+      { p: 15, c: 4, hasSolo: true, has1v1: false },
+      { p: 16, c: 4, hasSolo: false, has1v1: false },
+      { p: 17, c: 4, hasSolo: false, has1v1: false },
+      { p: 19, c: 5, hasSolo: true, has1v1: false },
+      { p: 20, c: 5, hasSolo: false, has1v1: false },
+      { p: 21, c: 5, hasSolo: false, has1v1: false },
     ];
 
     configs.forEach(function(cfg) {
@@ -1211,9 +1214,16 @@ describe('App.Shuffle', function() {
         var opponents = {};
         var groups = {};
         var solo = {};
-        pids.forEach(function(pid) { solo[pid] = 0; });
+        var oneVOne = {};
+        var oneVOneRounds = {};
+        pids.forEach(function(pid) {
+          solo[pid] = 0;
+          oneVOne[pid] = 0;
+          oneVOneRounds[pid] = [];
+        });
 
-        App.state.schedule.forEach(function(e) {
+        App.state.schedule.forEach(function(e, idx) {
+          var roundIdx = Math.floor(idx / cfg.c);
           var all = e.teamA.concat(e.teamB);
           assert.strictEqual(new Set(all).size, all.length,
             label + ': duplicate player within a game');
@@ -1236,6 +1246,12 @@ describe('App.Shuffle', function() {
           }
           if (e.teamA.length === 1 && e.teamB.length === 2) solo[e.teamA[0]]++;
           else if (e.teamB.length === 1 && e.teamA.length === 2) solo[e.teamB[0]]++;
+          if (e.teamA.length === 1 && e.teamB.length === 1) {
+            oneVOne[e.teamA[0]]++;
+            oneVOne[e.teamB[0]]++;
+            oneVOneRounds[e.teamA[0]].push(roundIdx);
+            oneVOneRounds[e.teamB[0]].push(roundIdx);
+          }
         });
 
         var maxPartner = Object.values(partners).length ? Math.max.apply(null, Object.values(partners)) : 0;
@@ -1250,6 +1266,24 @@ describe('App.Shuffle', function() {
           assert.ok(maxSolo <= 1, label + ': solo repeat max ' + maxSolo + ' (expected ≤ 1)');
         } else {
           assert.strictEqual(maxSolo, 0, label + ': expected no 2v1 games, got solo max ' + maxSolo);
+        }
+        if (cfg.has1v1) {
+          var counts = Object.values(oneVOne);
+          var max1 = Math.max.apply(null, counts);
+          var min1 = Math.min.apply(null, counts);
+          assert.ok(max1 - min1 <= 1,
+            label + ': 1v1 distribution unfair — counts range ' + min1 + '..' + max1 + ' (expected max − min ≤ 1)');
+
+          Object.keys(oneVOneRounds).forEach(function(pid) {
+            var rs = oneVOneRounds[pid];
+            for (var i = 1; i < rs.length; i++) {
+              assert.ok(rs[i] - rs[i - 1] > 1,
+                label + ': player in 1v1 in consecutive rounds ' + rs[i - 1] + ' and ' + rs[i]);
+            }
+          });
+        } else {
+          var total1v1 = Object.values(oneVOne).reduce(function(s, n) { return s + n; }, 0);
+          assert.strictEqual(total1v1, 0, label + ': expected no 1v1 games, got ' + total1v1);
         }
       });
     });

@@ -99,17 +99,23 @@ Rather than a weighted scalar penalty, SA compares states by a tuple of metrics,
 |---|---|---|
 | 1 | `maxSoloCount` | Worst-case: max times any player was the solo side of a 2v1 (base + new) |
 | 2 | `totalSoloRepeats` | Sum over players of max(0, soloCount − 1) |
-| 3 | `maxPartnerRepeat` | Worst-case: max times any pair partnered |
-| 4 | `totalPartnerRepeats` | Sum over pairs of max(0, count − 1) |
-| 5 | `groupRepeats` | Games with the same 4 players as a prior game (including finished matches) |
-| 6 | `maxOpponentRepeat` | Worst-case: max times any pair faced each other |
-| 7 | `totalOpponentRepeats` | Sum over pairs of max(0, count − 1) |
-| 8 | `gamesPlayedSpread` | max − min total games played per player (base + new) |
-| 9 | `maxConsecutiveBenches` | Longest run of bench rounds for any player |
-| 10 | `autoAssignStuck` | # (round, first-finisher) scenarios with no assignable next-round game |
-| 11 | `unfulfilledWishes` | Players whose wished partner never got on their team |
+| 3 | `max1v1Count` | Worst-case: max times any player appeared in a 1v1 (base + new) |
+| 4 | `spread1v1` | max − min 1v1 appearances across all players (fairness of distribution) |
+| 5 | `total1v1Repeats` | Sum over players of max(0, 1v1Count − 1) |
+| 6 | `maxConsec1v1` | Longest run of consecutive rounds any player was in a 1v1 |
+| 7 | `maxPartnerRepeat` | Worst-case: max times any pair partnered |
+| 8 | `totalPartnerRepeats` | Sum over pairs of max(0, count − 1) |
+| 9 | `groupRepeats` | Games with the same 4 players as a prior game (including finished matches) |
+| 10 | `maxOpponentRepeat` | Worst-case: max times any pair faced each other |
+| 11 | `totalOpponentRepeats` | Sum over pairs of max(0, count − 1) |
+| 12 | `gamesPlayedSpread` | max − min total games played per player (base + new) |
+| 13 | `maxConsecutiveBenches` | Longest run of bench rounds for any player |
+| 14 | `autoAssignStuck` | # (round, first-finisher) scenarios with no assignable next-round game |
+| 15 | `unfulfilledWishes` | Players whose wished partner never got on their team |
 
 `maxSoloCount` / `totalSoloRepeats` lead the tuple because at tight configurations a 2v1 recurs every round — e.g. 15 players on 4 courts = 3×2v2 + 1×2v1, one solo slot per round. A single player stuck solo 2×/10 games is far more visible than a partner repeat among 70 partnerships, so solo fairness outweighs partner/opponent repeats. Configurations without 2v1 games (e.g. 16/17p × 4c) have `maxSoloCount = 0` always, so this reordering is a no-op for them. See alexey-bass/badmixton-flow#42.
+
+The 1v1 block (positions 3–6) mirrors solo fairness for configs with 1v1 games — e.g. 14 players on 4 courts = 3×2v2 + 1×1v1, one 1v1 slot per round, 20 1v1 appearances spread across 14 players. Without this, SA left some players with 0 1v1s and others with 3×, and could place the same player in 1v1 on consecutive rounds. Configs without 1v1 games have all four components zero, so the block is a no-op. See alexey-bass/badmixton-flow#46.
 
 `groupRepeats` ranks above opponent repeats: the same 4 players on one court again is very noticeable ("we played this already"), while a single opponent pair meeting across the net again barely registers if the partners keep changing. Trading one extra opponent-pair event for avoiding a group repeat is a better UX.
 
@@ -172,9 +178,11 @@ The algorithm is validated by running 10 shuffle-mode simulations (17 players, 4
 | **Worst opponent pair** | < 4 times | No two players should face each other more than 3x |
 | **No group regrouping** | 0 exact same 4 players in 2 games | Penalized by the `groupRepeats` lex component |
 | **Fair games distribution** | Max − Min ≤ 3 games | Penalized by the `gamesPlayedSpread` lex component |
+| **Fair 2v1 (solo) distribution** | Max − Min ≤ 1 per player | Penalized by `maxSoloCount` / `totalSoloRepeats` |
+| **Fair 1v1 distribution** | Max − Min ≤ 1 per player, no consecutive rounds per player | Penalized by `max1v1Count` / `spread1v1` / `maxConsec1v1` |
 | **Late player fairness** | Late player games ≥ avg − 2 | SA's `baseGamesPlayed` tracking ensures late arrivals catch up |
 
-Run `npm run simulation:validate` to check all criteria across 10 simulations.
+Run `npm run simulation:validate` to check all criteria across 10 simulations. The `SA quality — real session configs` test in [test/shuffle.test.js](test/shuffle.test.js) asserts these bounds across the configurations actually played (14/15/16/17p × 4c, 19/20/21p × 5c, 10 rounds).
 
 ### Mathematical bounds (17p × 4c × 10r)
 

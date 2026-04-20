@@ -1381,6 +1381,10 @@ App.Shuffle = {
     // Starting solo-count (real + pre-scheduled) so SA distributes the 1-vs-2
     // disadvantage fairly across everyone, including across generate() calls.
     state.baseSolo = hist.vSolo || {};
+    // Starting 1v1-count — at tight configs (e.g. 14p/4c = one 1v1 per round)
+    // SA must spread the odd-format slot evenly, or the same players keep
+    // getting the short game every session.
+    state.baseOneVOne = hist.v1v1 || {};
 
     var iterations = Math.max(2000, Math.min(20000, gamesPerRound * rounds * 400));
     this._runSA(state, rng, iterations);
@@ -1418,9 +1422,11 @@ App.Shuffle = {
     var vPartner = {};
     var vOpponent = {};
     var vSolo = {};
+    var v1v1 = {};
     present.forEach(function(p) {
       vGames[p.id] = p.gamesPlayed;
       vSolo[p.id] = 0;
+      v1v1[p.id] = 0;
       vPartner[p.id] = {};
       Object.keys(p.partnerHistory || {}).forEach(function(k) {
         vPartner[p.id][k] = p.partnerHistory[k];
@@ -1438,6 +1444,10 @@ App.Shuffle = {
         vSolo[m.teamA[0]]++;
       } else if (m.teamB.length === 1 && m.teamA.length === 2 && vSolo[m.teamB[0]] !== undefined) {
         vSolo[m.teamB[0]]++;
+      }
+      if (m.teamA.length === 1 && m.teamB.length === 1) {
+        if (v1v1[m.teamA[0]] !== undefined) v1v1[m.teamA[0]]++;
+        if (v1v1[m.teamB[0]] !== undefined) v1v1[m.teamB[0]]++;
       }
     });
 
@@ -1459,6 +1469,10 @@ App.Shuffle = {
       } else if (entry.teamB.length === 1 && entry.teamA.length === 2 && vSolo[entry.teamB[0]] !== undefined) {
         vSolo[entry.teamB[0]]++;
       }
+      if (entry.teamA.length === 1 && entry.teamB.length === 1) {
+        if (v1v1[entry.teamA[0]] !== undefined) v1v1[entry.teamA[0]]++;
+        if (v1v1[entry.teamB[0]] !== undefined) v1v1[entry.teamB[0]]++;
+      }
       entry.teamA.forEach(function(pa) {
         entry.teamB.forEach(function(pb) {
           if (vOpponent[pa]) vOpponent[pa][pb] = (vOpponent[pa][pb] || 0) + 1;
@@ -1467,7 +1481,7 @@ App.Shuffle = {
       });
     });
 
-    return { vGames: vGames, vPartner: vPartner, vOpponent: vOpponent, vSolo: vSolo };
+    return { vGames: vGames, vPartner: vPartner, vOpponent: vOpponent, vSolo: vSolo, v1v1: v1v1 };
   },
 
   // Decide how many games fit per round and each game's size (player count).
@@ -1814,6 +1828,17 @@ App.Shuffle = {
     var baseSolo = state.baseSolo || {};
     var soloCount = {};
     for (var si = 0; si < ids.length; si++) soloCount[ids[si]] = baseSolo[ids[si]] || 0;
+    // 1v1 fairness — mirrors solo tracking. At configs like 14p/4c (one 1v1
+    // per round) SA must spread the short format evenly and avoid placing
+    // the same player in 1v1 in back-to-back rounds.
+    var max1v1 = 0, total1v1Repeats = 0, maxConsec1v1 = 0;
+    var base1v1 = state.baseOneVOne || {};
+    var count1v1 = {};
+    var rounds1v1 = {}; // pid -> { round -> true } for this SA state's new games
+    for (var oi = 0; oi < ids.length; oi++) {
+      count1v1[ids[oi]] = base1v1[ids[oi]] || 0;
+      rounds1v1[ids[oi]] = {};
+    }
     for (var sgi = 0; sgi < state.games.length; sgi++) {
       var sgm = state.games[sgi];
       var aLen = 0, bLen = 0, aSolo = null, bSolo = null;
@@ -1821,11 +1846,40 @@ App.Shuffle = {
       for (var sk2 = 0; sk2 < sgm.teamB.length; sk2++) if (sgm.teamB[sk2] != null) { bLen++; bSolo = sgm.teamB[sk2]; }
       if (aLen === 1 && bLen === 2 && aSolo != null) soloCount[aSolo]++;
       else if (bLen === 1 && aLen === 2 && bSolo != null) soloCount[bSolo]++;
+      else if (aLen === 1 && bLen === 1 && aSolo != null && bSolo != null) {
+        count1v1[aSolo]++;
+        count1v1[bSolo]++;
+        var rIdx1 = Math.floor(sgi / state.gamesPerRound);
+        rounds1v1[aSolo][rIdx1] = true;
+        rounds1v1[bSolo][rIdx1] = true;
+      }
     }
     for (var spi = 0; spi < ids.length; spi++) {
       var sc = soloCount[ids[spi]];
       if (sc > maxSolo) maxSolo = sc;
       if (sc > 1) totalSoloRepeats += sc - 1;
+    }
+    // Aggregate 1v1 distribution (max, spread vs min) and consecutive streaks.
+    var min1v1 = Infinity;
+    for (var oci = 0; oci < ids.length; oci++) {
+      var occ = count1v1[ids[oci]];
+      if (occ > max1v1) max1v1 = occ;
+      if (occ < min1v1) min1v1 = occ;
+      if (occ > 1) total1v1Repeats += occ - 1;
+    }
+    if (min1v1 === Infinity) min1v1 = 0;
+    var spread1v1 = max1v1 - min1v1;
+    for (var pci = 0; pci < ids.length; pci++) {
+      var id1v1 = ids[pci];
+      var streak1v1 = 0;
+      for (var rc = 0; rc < state.rounds; rc++) {
+        if (rounds1v1[id1v1][rc]) {
+          streak1v1++;
+          if (streak1v1 > maxConsec1v1) maxConsec1v1 = streak1v1;
+        } else {
+          streak1v1 = 0;
+        }
+      }
     }
 
     // Group regrouping — same 4 players play together again (possibly with a
@@ -1899,16 +1953,20 @@ App.Shuffle = {
       }
     }
 
-    // Solo fairness leads the tuple. In tight configs (e.g. 15p/4c = one
-    // 2v1 per round) a player stuck solo 2×/10 games is far more visible
-    // than a partner repeat among 70 partnerships, so a single solo repeat
-    // outweighs even multiple partner repeats.
+    // Solo / 1v1 fairness lead the tuple. In tight configs (e.g. 15p/4c = one
+    // 2v1 per round, or 14p/4c = one 1v1 per round) a player stuck in the
+    // odd format repeatedly is far more visible than a partner repeat among
+    // 60+ partnerships, so format-fairness outweighs partner/opponent repeats.
+    //
+    // For 1v1: minimize max count first, then spread (max − min), then
+    // consecutive streaks. This gets the fair distribution (every player
+    // within 1 slot of each other) without forcing same-player back-to-back.
     //
     // Group repeats (same 4 players in a game again) rank above opponent
     // repeats — "we're all on this court again" is very noticeable, while
     // "that same person is across the net" barely registers if the partners
     // keep changing.
-    return [maxSolo, totalSoloRepeats, maxPartner, totalPartnerRepeats, groupRepeats, maxOpp, totalOppRepeats, spread, maxConsec, stuck, unfulfilled];
+    return [maxSolo, totalSoloRepeats, max1v1, spread1v1, total1v1Repeats, maxConsec1v1, maxPartner, totalPartnerRepeats, groupRepeats, maxOpp, totalOppRepeats, spread, maxConsec, stuck, unfulfilled];
   },
 
   _lexCmp: function(a, b) {
