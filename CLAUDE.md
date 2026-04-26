@@ -268,6 +268,15 @@ Header layout (left to right): title + session name, lock indicator (🔒) | lan
 - Handles corrupted localStorage, old versions, and Firebase sync data
 - Player fields auto-migrated (partnerHistory, wins, losses, points, wishedPartner→wishedPartners, etc.)
 
+### Auto-prune old sessions
+- `App.Storage.pruneOldSessions(maxAgeDays)` deletes `bs_<id>` entries older than the cutoff (uses `lastModified`, falls back to `date`)
+- `App.Storage.pruneEmptySessions()` deletes `bs_<id>` shells with no players, matches, or schedule entries — created on every page load via `Session.create()` when no saved session exists, often never used
+- Both run from `App.init()` on every startup; old-cutoff is 30 days
+- Active session is always kept, even if older than the threshold or empty
+- Corrupted entries are skipped, not deleted (manual cleanup only)
+- Both share `_pruneSessions(predicate, keepSessionId)` for iteration and `bs_index` rewrite
+- Synced sessions remain on Firebase — local prune is a cache eviction, not data loss; reopening a session URL re-hydrates from Firebase
+
 ## Data Model
 
 Session state stored in `localStorage` as `bs_<sessionId>` (e.g. `bs_bf-x7kQ9m`). Each session gets a unique `sessionId` (auto-generated hash) used for both localStorage and Firebase sync. `bs_last` tracks the most recent key suffix. Index at `bs_index`. URL updates to `?session=<sessionId>` via `history.replaceState`.

@@ -192,6 +192,92 @@ App.Storage = {
     }
   },
 
+  // Iterate bs_<id> entries (skipping the active session and metadata keys)
+  // and delete any for which `predicate(parsedState)` returns true. Corrupt
+  // entries are skipped, not deleted. Rewrites bs_index after deletions.
+  // Returns the number deleted.
+  _pruneSessions: function(predicate, keepSessionId) {
+    var keep = keepSessionId || (App.state && App.state.sessionId) || null;
+    var prefix = this.SESSION_PREFIX;
+    var prefixLen = prefix.length;
+    var indexKey = this.INDEX_KEY;
+    var lastKey = this.LAST_KEY;
+
+    // Snapshot keys first — removeItem during iteration shifts indices.
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(prefix) === 0 && k !== indexKey && k !== lastKey) {
+        keys.push(k);
+      }
+    }
+
+    var deleted = 0;
+    for (var j = 0; j < keys.length; j++) {
+      var key = keys[j];
+      var suffix = key.substring(prefixLen);
+      if (keep && suffix === keep) continue;
+      var raw = localStorage.getItem(key);
+      if (!raw) continue;
+      var parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        // Corrupt entry — leave for manual cleanup rather than silently drop.
+        continue;
+      }
+      if (predicate(parsed)) {
+        localStorage.removeItem(key);
+        deleted++;
+      }
+    }
+
+    if (deleted > 0) {
+      var index = this.getIndex();
+      var pruned = index.filter(function(suffix) {
+        return localStorage.getItem(prefix + suffix) !== null;
+      });
+      if (pruned.length !== index.length) {
+        try {
+          localStorage.setItem(indexKey, JSON.stringify(pruned));
+        } catch (e) {
+          console.error('Index update error:', e);
+        }
+      }
+    }
+
+    return deleted;
+  },
+
+  // Delete bs_<id> entries older than maxAgeDays. Active session is always
+  // kept. Old sessions still live on Firebase if they were synced — this is
+  // a local-cache eviction, not data loss. Returns the number deleted.
+  pruneOldSessions: function(maxAgeDays, keepSessionId) {
+    var cutoff = Date.now() - (maxAgeDays * 24 * 60 * 60 * 1000);
+    return this._pruneSessions(function(parsed) {
+      var ts = null;
+      if (typeof parsed.lastModified === 'number') {
+        ts = parsed.lastModified;
+      } else if (typeof parsed.date === 'string') {
+        var t = Date.parse(parsed.date);
+        if (!isNaN(t)) ts = t;
+      }
+      return ts !== null && ts < cutoff;
+    }, keepSessionId);
+  },
+
+  // Delete bs_<id> entries that have no players, matches, or schedule —
+  // shells created on page load that never had any data added. Active
+  // session is always kept. Returns the number deleted.
+  pruneEmptySessions: function(keepSessionId) {
+    return this._pruneSessions(function(parsed) {
+      var hasPlayers = parsed.players && Object.keys(parsed.players).length > 0;
+      var hasMatches = parsed.matches && Object.keys(parsed.matches).length > 0;
+      var hasSchedule = Array.isArray(parsed.schedule) && parsed.schedule.length > 0;
+      return !hasPlayers && !hasMatches && !hasSchedule;
+    }, keepSessionId);
+  },
+
   getSettings: function() {
     try {
       return JSON.parse(localStorage.getItem(this.SETTINGS_KEY)) || {};
@@ -6119,6 +6205,17 @@ App.init = function() {
     // Create new session
     App.Session.create();
     App.Session.initCourts([1, 2, 3, 4]);
+  }
+
+  // Evict bs_* entries older than 30 days, plus empty shells created on page
+  // load that never had data added. Keeps localStorage from filling up
+  // (~3 MB/year at 2 sessions/week vs. browser cap of ~5-10 MB). Synced
+  // sessions remain on Firebase, so this is a local-cache trim, not data loss.
+  try {
+    App.Storage.pruneOldSessions(30);
+    App.Storage.pruneEmptySessions();
+  } catch (e) {
+    console.error('Prune error:', e);
   }
 
   // Update URL to reflect current session

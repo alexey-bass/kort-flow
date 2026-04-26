@@ -220,6 +220,209 @@ describe('App.Storage', function() {
     });
   });
 
+  describe('pruneOldSessions', function() {
+    var DAY = 24 * 60 * 60 * 1000;
+
+    function seedSession(suffix, lastModified, extra) {
+      var state = Object.assign({
+        version: 1,
+        sessionId: suffix,
+        date: '2026-01-01',
+        lastModified: lastModified
+      }, extra || {});
+      localStorage.setItem(App.Storage.SESSION_PREFIX + suffix, JSON.stringify(state));
+      var index = App.Storage.getIndex();
+      if (index.indexOf(suffix) === -1) {
+        index.push(suffix);
+        localStorage.setItem(App.Storage.INDEX_KEY, JSON.stringify(index));
+      }
+    }
+
+    it('should delete sessions older than the cutoff', function() {
+      App.state = null;
+      seedSession('old-1', Date.now() - 60 * DAY);
+      seedSession('old-2', Date.now() - 45 * DAY);
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 2);
+      assert.strictEqual(localStorage.getItem(App.Storage.SESSION_PREFIX + 'old-1'), null);
+      assert.strictEqual(localStorage.getItem(App.Storage.SESSION_PREFIX + 'old-2'), null);
+    });
+
+    it('should keep sessions younger than the cutoff', function() {
+      App.state = null;
+      seedSession('fresh-1', Date.now() - 5 * DAY);
+      seedSession('fresh-2', Date.now() - 29 * DAY);
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'fresh-1'));
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'fresh-2'));
+    });
+
+    it('should never delete the active session even if old', function() {
+      App.Session.create();
+      App.state.lastModified = Date.now() - 365 * DAY;
+      App.Storage.save();
+      var activeId = App.state.sessionId;
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + activeId));
+    });
+
+    it('should fall back to date when lastModified is missing', function() {
+      App.state = null;
+      // No lastModified — should parse the ISO date instead.
+      localStorage.setItem(App.Storage.SESSION_PREFIX + 'legacy', JSON.stringify({
+        version: 1,
+        sessionId: 'legacy',
+        date: '2020-01-01'
+      }));
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 1);
+      assert.strictEqual(localStorage.getItem(App.Storage.SESSION_PREFIX + 'legacy'), null);
+    });
+
+    it('should skip corrupted entries rather than delete', function() {
+      App.state = null;
+      localStorage.setItem(App.Storage.SESSION_PREFIX + 'broken', '{not json');
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'broken'));
+    });
+
+    it('should skip entries with no timestamp at all', function() {
+      App.state = null;
+      // Valid JSON but neither lastModified nor parseable date.
+      localStorage.setItem(App.Storage.SESSION_PREFIX + 'no-ts', JSON.stringify({ sessionId: 'no-ts' }));
+
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'no-ts'));
+    });
+
+    it('should rewrite bs_index after pruning', function() {
+      App.state = null;
+      seedSession('old', Date.now() - 60 * DAY);
+      seedSession('fresh', Date.now() - 1 * DAY);
+
+      App.Storage.pruneOldSessions(30);
+      var index = App.Storage.getIndex();
+      assert.deepStrictEqual(index, ['fresh']);
+    });
+
+    it('should not touch bs_index or bs_last keys', function() {
+      App.state = null;
+      seedSession('old', Date.now() - 60 * DAY);
+      localStorage.setItem(App.Storage.LAST_KEY, 'old');
+
+      App.Storage.pruneOldSessions(30);
+      // bs_last is metadata, not a session — should remain even if its target was pruned.
+      assert.strictEqual(localStorage.getItem(App.Storage.LAST_KEY), 'old');
+    });
+
+    it('should accept explicit keepSessionId override', function() {
+      App.state = null;
+      seedSession('keepme', Date.now() - 60 * DAY);
+      seedSession('drop', Date.now() - 60 * DAY);
+
+      var deleted = App.Storage.pruneOldSessions(30, 'keepme');
+      assert.strictEqual(deleted, 1);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'keepme'));
+      assert.strictEqual(localStorage.getItem(App.Storage.SESSION_PREFIX + 'drop'), null);
+    });
+
+    it('should be a no-op when no sessions exist', function() {
+      App.state = null;
+      var deleted = App.Storage.pruneOldSessions(30);
+      assert.strictEqual(deleted, 0);
+    });
+  });
+
+  describe('pruneEmptySessions', function() {
+    function seedRaw(suffix, state) {
+      localStorage.setItem(App.Storage.SESSION_PREFIX + suffix, JSON.stringify(state));
+      var index = App.Storage.getIndex();
+      if (index.indexOf(suffix) === -1) {
+        index.push(suffix);
+        localStorage.setItem(App.Storage.INDEX_KEY, JSON.stringify(index));
+      }
+    }
+
+    it('should delete sessions with no players, matches, or schedule', function() {
+      App.state = null;
+      seedRaw('empty', { sessionId: 'empty', players: {}, matches: {}, schedule: [] });
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 1);
+      assert.strictEqual(localStorage.getItem(App.Storage.SESSION_PREFIX + 'empty'), null);
+    });
+
+    it('should keep sessions with at least one player', function() {
+      App.state = null;
+      seedRaw('with-players', { sessionId: 'with-players', players: { p1: { name: 'Ola' } }, matches: {}, schedule: [] });
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'with-players'));
+    });
+
+    it('should keep sessions with at least one match', function() {
+      App.state = null;
+      seedRaw('with-matches', { sessionId: 'with-matches', players: {}, matches: { m1: { id: 'm1' } }, schedule: [] });
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 0);
+    });
+
+    it('should keep sessions with at least one schedule entry', function() {
+      App.state = null;
+      seedRaw('with-schedule', { sessionId: 'with-schedule', players: {}, matches: {}, schedule: [{ id: 'g1' }] });
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 0);
+    });
+
+    it('should never delete the active session even if empty', function() {
+      App.Session.create();
+      var activeId = App.state.sessionId;
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + activeId));
+    });
+
+    it('should skip corrupted entries', function() {
+      App.state = null;
+      localStorage.setItem(App.Storage.SESSION_PREFIX + 'broken', '{not json');
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 0);
+      assert.ok(localStorage.getItem(App.Storage.SESSION_PREFIX + 'broken'));
+    });
+
+    it('should rewrite bs_index after pruning', function() {
+      App.state = null;
+      seedRaw('empty', { sessionId: 'empty', players: {}, matches: {}, schedule: [] });
+      seedRaw('keep', { sessionId: 'keep', players: { p: {} }, matches: {}, schedule: [] });
+
+      App.Storage.pruneEmptySessions();
+      assert.deepStrictEqual(App.Storage.getIndex(), ['keep']);
+    });
+
+    it('should treat missing fields as empty', function() {
+      App.state = null;
+      // Older state shape with no `schedule` array (queue-mode legacy).
+      seedRaw('legacy-empty', { sessionId: 'legacy-empty', players: {}, matches: {} });
+
+      var deleted = App.Storage.pruneEmptySessions();
+      assert.strictEqual(deleted, 1);
+    });
+  });
+
   describe('getSettings', function() {
     it('should return empty object when no settings', function() {
       assert.deepStrictEqual(App.Storage.getSettings(), {});
