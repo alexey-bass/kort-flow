@@ -5807,12 +5807,13 @@ App.UI = {
       // Virtually assign courts round-robin by schedule position so players
       // can read their court off the printed schedule even before games run.
       // Finished matches override with the actual court the game played on.
+      var courtPrefix = App.t('printCourtPrefix');
       var virtualCourt = activeCourts[idx % courtCount];
-      var courtCell = virtualCourt ? esc(String(virtualCourt.displayNumber)) : '';
+      var courtCell = virtualCourt ? esc(courtPrefix + virtualCourt.displayNumber) : '';
       var scoreCell = '';
       if (match && match.status === 'finished') {
         if (match.courtId && state.courts[match.courtId]) {
-          courtCell = esc(String(state.courts[match.courtId].displayNumber));
+          courtCell = esc(courtPrefix + state.courts[match.courtId].displayNumber);
         }
         if (match.score) scoreCell = esc(match.score);
       }
@@ -5833,8 +5834,9 @@ App.UI = {
       // the round divider — give it the same bold border as the data cells
       // (except on the final round, which has the normal table-end border).
       var roundCellClass = !isLastRound ? ' class="round-cell"' : '';
+      var roundLabel = App.t('printRoundPrefix') + (round + 1);
       var roundCell = isFirstInRound
-        ? '<td' + roundCellClass + ' style="text-align:center; vertical-align:top" rowspan="' + rowspan + '">' + (round + 1) + '</td>'
+        ? '<td' + roundCellClass + ' style="text-align:center; vertical-align:top; font-weight:700" rowspan="' + rowspan + '">' + esc(roundLabel) + '</td>'
         : '';
 
       var benchCell = '';
@@ -5869,7 +5871,7 @@ App.UI = {
       'th, td { border:1px solid #ccc; padding:5px 6px; font-size:12px; }' +
       'th { background:#f5f5f5; font-weight:600; text-align:left; border-bottom:2px solid #666; }' +
       'td.fill { min-width:60px; }' +
-      'td.court-cell { text-align:center; width:40px; font-weight:700; font-size:13px; font-variant-numeric:tabular-nums; }' +
+      'td.court-cell { text-align:center; width:48px; font-weight:700; font-size:13px; font-variant-numeric:tabular-nums; }' +
       'tr { break-inside:avoid; }' +
       'tr.round-end td, td.round-cell { border-bottom:2px solid #666; }' +
       // Alternating per-round background. Print-friendly gray — light enough
@@ -5883,8 +5885,8 @@ App.UI = {
       '<h2>' + App.t('printPlayerRoster') + '</h2>' +
       '<div class="roster">' + rosterItems.join(', ') + '</div>' +
       '<table><thead><tr>' +
-      '<th style="width:30px">#</th>' +
-      '<th style="width:40px">' + App.t('printCourt') + '</th>' +
+      '<th style="width:36px; text-align:center">#</th>' +
+      '<th style="width:48px">' + App.t('printCourt') + '</th>' +
       '<th>' + App.t('printTeam') + ' A</th>' +
       '<th>' + App.t('printTeam') + ' B</th>' +
       '<th>' + App.t('printScore') + '</th>' +

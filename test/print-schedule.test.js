@@ -121,10 +121,10 @@ describe('App.UI.printSchedule', function() {
     App.UI.printSchedule();
     window.open = origOpen;
 
-    // With 2 courts × 2 rounds, courts should cycle 1,2,1,2 across the four games.
-    var courtCells = html._html.match(/<td class="court-cell">(\d*)<\/td>/g) || [];
-    var courts = courtCells.map(function(c) { var m = c.match(/>(\d*)</); return m ? m[1] : ''; });
-    assert.deepStrictEqual(courts, ['1', '2', '1', '2'], 'courts should cycle round-robin by schedule index');
+    // With 2 courts × 2 rounds, courts should cycle K1,K2,K1,K2 across the four games.
+    var courtCells = html._html.match(/<td class="court-cell">([^<]*)<\/td>/g) || [];
+    var courts = courtCells.map(function(c) { var m = c.match(/>([^<]*)</); return m ? m[1] : ''; });
+    assert.deepStrictEqual(courts, ['K1', 'K2', 'K1', 'K2'], 'courts should cycle round-robin by schedule index');
   });
 
   it('should honour custom court display numbers when pre-filling', function() {
@@ -141,9 +141,9 @@ describe('App.UI.printSchedule', function() {
     App.UI.printSchedule();
     window.open = origOpen;
 
-    var courtCells = html._html.match(/<td class="court-cell">(\d*)<\/td>/g) || [];
-    var courts = courtCells.map(function(c) { var m = c.match(/>(\d*)</); return m ? m[1] : ''; });
-    assert.deepStrictEqual(courts, ['3', '7'], 'should use courts\' display numbers in order');
+    var courtCells = html._html.match(/<td class="court-cell">([^<]*)<\/td>/g) || [];
+    var courts = courtCells.map(function(c) { var m = c.match(/>([^<]*)</); return m ? m[1] : ''; });
+    assert.deepStrictEqual(courts, ['K3', 'K7'], 'should use courts\' display numbers in order');
   });
 
   it('should pre-fill data for finished games', function() {
@@ -181,7 +181,7 @@ describe('App.UI.printSchedule', function() {
     window.open = origOpen;
   });
 
-  it('should mark round-cell on rowspanned # column for non-final rounds', function() {
+  it('should mark round-cell on rowspanned round column for non-final rounds', function() {
     createShuffleSession(8, [1, 2]);
     App.Shuffle.generate(4); // 2 rounds
 
@@ -195,11 +195,13 @@ describe('App.UI.printSchedule', function() {
     App.UI.printSchedule();
     window.open = origOpen;
 
-    // Round 1's # cell should have round-cell class; round 2 (last) should not.
-    var roundCells = html._html.match(/<td[^>]*rowspan="2"[^>]*>\s*\d+\s*<\/td>/g) || [];
+    // Round 1's cell should have round-cell class; round 2 (last) should not.
+    var roundCells = html._html.match(/<td[^>]*rowspan="2"[^>]*>\s*R\d+\s*<\/td>/g) || [];
     assert.strictEqual(roundCells.length, 2, 'should have 2 round cells');
-    assert.ok(roundCells[0].includes('class="round-cell"'), 'first round # should have round-cell class');
-    assert.ok(!roundCells[1].includes('round-cell'), 'last round # should not have round-cell class');
+    assert.ok(roundCells[0].includes('R1'), 'first round cell should be R1');
+    assert.ok(roundCells[1].includes('R2'), 'second round cell should be R2');
+    assert.ok(roundCells[0].includes('class="round-cell"'), 'first round cell should have round-cell class');
+    assert.ok(!roundCells[1].includes('round-cell'), 'last round cell should not have round-cell class');
   });
 
   it('should contain translated headers', function() {
@@ -221,6 +223,10 @@ describe('App.UI.printSchedule', function() {
     assert.ok(html._html.includes('Player roster'), 'should have English roster heading');
     assert.ok(html._html.includes('Score'), 'should have Score header');
     assert.ok(html._html.includes('Team A'), 'should have Team A header');
+    // English court prefix: C
+    assert.ok(/<td class="court-cell">C\d+<\/td>/.test(html._html), 'court cells should use C prefix in English');
+    // Round prefix is R in both languages
+    assert.ok(/rowspan="2"[^>]*>\s*R\d+\s*<\/td>/.test(html._html), 'round cells should use R prefix in English');
 
     App.i18n.setLang('pl');
   });

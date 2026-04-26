@@ -375,6 +375,8 @@ App.i18n = {
       printTeam: 'Zespół',
       printBench: 'Pauza',
       printCourt: 'Kort',
+      printRoundPrefix: 'R',
+      printCourtPrefix: 'K',
       printScore: 'Wynik',
 
       // Court utilization
@@ -749,6 +751,8 @@ App.i18n = {
       printTeam: 'Team',
       printBench: 'Bench',
       printCourt: 'Court',
+      printRoundPrefix: 'R',
+      printCourtPrefix: 'C',
       printScore: 'Score',
 
       // Court utilization
